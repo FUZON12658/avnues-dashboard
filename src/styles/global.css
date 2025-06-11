@@ -1,0 +1,287 @@
+@import 'tailwindcss';
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  --surface-100: #f5f5f5;
+  --surface-200: #e5e5e5;
+  --surface-300: #d4d4d4;
+  --surface-400: #c3c3c3;
+  --surface-500: #b2b2b2;
+  --surface-600: #a1a1a1;
+  --surface-700: #909090;
+  --surface-800: #535353;
+  --surface-900: #000000;
+
+  --primary-light: #60a5fa;
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+
+  --accent-light: #a78bfa;
+  --accent: #8b5cf6;
+  --accent-dark: #7c3aed;
+
+  --success-light: #4ade80;
+  --success: #22c55e;
+  --success-dark: #16a34a;
+
+  --error-light: #fa7171;
+  --error: #ef4444;
+  --error-dark: #dc2626;
+
+  --border-light: #e5e5e5;
+  --border: #d4d4d4;
+  --border-dark: #a3a3a3;
+
+  --shadow-sm: 0 0.0625rem 0.125rem 0 rgba(0, 0, 0, 0.05);
+  --shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.1),
+    0 0.0625rem 0.125rem 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 0.25rem 0.375rem -0.0625rem rgba(0, 0, 0, 0.1),
+    0 0.125rem 0.25rem -0.0625rem rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 0.625rem 0.9375rem -0.1875rem rgba(0, 0, 0, 0.1),
+    0 0.25rem 0.375rem -0.125rem rgba(0, 0, 0, 0.05);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --scrollbar-thumb: #000000;
+  --scrollbar-track: #f0f0f0;
+  --scrollbar-width: 8px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface-100: var(--surface-100);
+  --color-surface-200: var(--surface-200);
+  --color-surface-300: var(--surface-300);
+  --color-surface-400: var(--surface-400);
+  --color-surface-500: var(--surface-500);
+  --color-surface-600: var(--surface-600);
+  --color-surface-700: var(--surface-700);
+  --color-surface-800: var(--surface-800);
+  --color-surface-900: var(--surface-900);
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-primary-dark: var(--primary-dark);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-border: var(--border);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+
+    /* Surface colors */
+    --surface-100: #171717;
+    --surface-200: #262626;
+    --surface-300: #404040;
+    --surface-400: #555555;
+    --surface-500: #6a6a6a;
+    --surface-600: #7f7f7f;
+    --surface-700: #949494;
+    --surface-800: #a9a9a9;
+    --surface-900: #bebebe;
+
+    /* Primary colors */
+    --primary-light: #3b82f6;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+
+    /* Accent colors */
+    --accent-light: #8b5cf6;
+    --accent: #7c3aed;
+    --accent-dark: #6d28d9;
+
+    /* Success colors */
+    --success-light: #22c55e;
+    --success: #16a34a;
+    --success-dark: #15803d;
+
+    /* Warning colors */
+    --warning-light: #f59e0b;
+    --warning: #d97706;
+    --warning-dark: #b45309;
+
+    /* Error colors */
+    --error-light: #ef4444;
+    --error: #dc2626;
+    --error-dark: #b91c1c;
+
+    /* Border colors */
+    --border-light: #404040;
+    --border: #525252;
+    --border-dark: #737373;
+
+    /* Shadow values - darker for dark mode */
+
+    --shadow-sm: 0 0.0625rem 0.125rem 0 rgba(0, 0, 0, 0.3);
+    --shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.4),
+      0 0.0625rem 0.125rem 0 rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 0.25rem 0.375rem -0.0625rem rgba(0, 0, 0, 0.4),
+      0 0.125rem 0.25rem -0.0625rem rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 0.625rem 0.9375rem -0.1875rem rgba(0, 0, 0, 0.4),
+      0 0.25rem 0.375rem -0.125rem rgba(0, 0, 0, 0.2);
+
+    --scrollbar-thumb: #ffffff;
+    --scrollbar-track: #363636;
+  }
+}
+
+.light-theme {
+  /* Base colors */
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Surface colors */
+  --surface-100: #f5f5f5;
+  --surface-200: #e5e5e5;
+  --surface-300: #d4d4d4;
+  --surface-400: #c3c3c3;
+  --surface-500: #b2b2b2;
+  --surface-600: #a1a1a1;
+  --surface-700: #909090;
+  --surface-800: #7f7f7f;
+  --surface-900: #6e6e6e;
+
+  /* Primary colors */
+  --primary-light: #60a5fa;
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+
+  /* Accent colors */
+  --accent-light: #a78bfa;
+  --accent: #8b5cf6;
+  --accent-dark: #7c3aed;
+
+  /* Success colors */
+  --success-light: #4ade80;
+  --success: #22c55e;
+  --success-dark: #16a34a;
+
+  /* Warning colors */
+  --warning-light: #fcd34d;
+  --warning: #f59e0b;
+  --warning-dark: #d97706;
+
+  /* Error colors */
+  --error-light: #f87171;
+  --error: #ef4444;
+  --error-dark: #dc2626;
+
+  /* Border colors */
+  --border-light: #e5e5e5;
+  --border: #d4d4d4;
+  --border-dark: #a3a3a3;
+
+  --shadow-sm: 0 0.0625rem 0.125rem 0 rgba(0, 0, 0, 0.05);
+  --shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.1),
+    0 0.0625rem 0.125rem 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 0.25rem 0.375rem -0.0625rem rgba(0, 0, 0, 0.1),
+    0 0.125rem 0.25rem -0.0625rem rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 0.625rem 0.9375rem -0.1875rem rgba(0, 0, 0, 0.1),
+    0 0.25rem 0.375rem -0.125rem rgba(0, 0, 0, 0.05);
+
+  --scrollbar-thumb: #000000;
+  --scrollbar-track: #f0f0f0;
+  --scrollbar-width: 8px;
+}
+
+.dark-theme {
+  /* Base colors */
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  /* Surface colors */
+  --surface-100: #171717;
+  --surface-200: #262626;
+  --surface-300: #404040;
+  --surface-400: #555555;
+  --surface-500: #6a6a6a;
+  --surface-600: #7f7f7f;
+  --surface-700: #949494;
+  --surface-800: #a9a9a9;
+  --surface-900: #bebebe;
+
+  /* Primary colors */
+  --primary-light: #3b82f6;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+
+  /* Accent colors */
+  --accent-light: #8b5cf6;
+  --accent: #7c3aed;
+  --accent-dark: #6d28d9;
+
+  /* Success colors */
+  --success-light: #22c55e;
+  --success: #16a34a;
+  --success-dark: #15803d;
+
+  /* Warning colors */
+  --warning-light: #f59e0b;
+  --warning: #d97706;
+  --warning-dark: #b45309;
+
+  /* Error colors */
+  --error-light: #ef4444;
+  --error: #dc2626;
+  --error-dark: #b91c1c;
+
+  /* Border colors */
+  --border-light: #404040;
+  --border: #525252;
+  --border-dark: #737373;
+
+  /* Shadow values - darker for dark mode */
+  --shadow-sm: 0 0.0625rem 0.125rem 0 rgba(0, 0, 0, 0.3);
+  --shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.4),
+    0 0.0625rem 0.125rem 0 rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 0.25rem 0.375rem -0.0625rem rgba(0, 0, 0, 0.4),
+    0 0.125rem 0.25rem -0.0625rem rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 0.625rem 0.9375rem -0.1875rem rgba(0, 0, 0, 0.4),
+    0 0.25rem 0.375rem -0.125rem rgba(0, 0, 0, 0.2);
+
+  --scrollbar-thumb: #ffffff;
+  --scrollbar-track: #363636;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
+}
+
+.hide-scroll-bar {
+  -ms-overflow-style: none; /* Internet Explorer and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* For WebKit browsers (Chrome, Safari) */
+.hide-scroll-bar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.scrollbar-bg {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Chrome, Safari, Edge */
+.scrollbar-bg::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+}
+
+.scrollbar-bg::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.scrollbar-bg::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 10px;
+}
