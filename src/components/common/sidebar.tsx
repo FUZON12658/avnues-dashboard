@@ -243,8 +243,8 @@ const Sidebar = () => {
 
   return (
     <nav
-      className={`${
-        isCollapsed ? 'w-24' : 'w-96'
+      className={`max-w-72 ${
+        isCollapsed ? 'w-24 min-w-24' : 'w-72 min-w-72'
       } sticky top-0 left-0 bg-background border-r border-border h-screen flex flex-col shadow-lg transition-all duration-700 ease-in-out z-50`}
     >
       <div
@@ -264,7 +264,7 @@ const Sidebar = () => {
             className="flex items-center space-x-2 mx-auto text-primary"
           >
             <img
-              src="https://picsum.photos/200/300"
+              src="/atv.svg"
               alt="logo"
               className="h-10"
             />
@@ -283,7 +283,7 @@ const Sidebar = () => {
             }`}
           >
             <img
-              src="https://picsum.photos/200/300"
+              src="/atv.svg"
               alt="user"
               className={`h-11 w-11 shadow-sm ${
                 isCollapsed ? 'rounded-sm' : 'rounded-full'
@@ -297,7 +297,7 @@ const Sidebar = () => {
               }`}
             >
               <h6 className="text-base text-foreground font-medium mb-0">
-                Aagaman Sharma Pokharel
+                Avatar
               </h6>
               <small className="text-surface-700 text-sm">Administrator</small>
             </div>

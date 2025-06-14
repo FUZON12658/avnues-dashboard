@@ -302,13 +302,17 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     if (viewData && !dataFilledRef.current && formDataSupplied) {
       const newDefaultValues = viewData.displayModel.formFields.reduce(
         //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-        (acc, { key, type }) => {
+        (acc, { key, type, populatedKey }) => {
           if (type === 'switch') {
             acc[key] = formDataSupplied?.[key] ? 'Yes' : 'No';
           } else if (type === 'number') {
             acc[key] = formDataSupplied?.[key] ?? 0;
           } else if (type === 'multiselect') {
-            const value = formDataSupplied?.[key];
+            const value = formDataSupplied?.[key]
+              ? formDataSupplied?.[populatedKey]
+                ? formDataSupplied?.[populatedKey]
+                : formDataSupplied?.[key]
+              : null;
             acc[key] = Array.isArray(value)
               ? value.map((item) =>
                   typeof item === 'object' && item !== null
@@ -317,7 +321,15 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 )
               : [];
           } else if (type === 'singleselect') {
-            acc[key] = formDataSupplied?.[key] ?? [];
+            console.log(formDataSupplied?.[key]);
+            console.log(formDataSupplied?.[populatedKey]);
+            console.log(populatedKey);
+            console.log(key);
+            acc[key] = formDataSupplied?.[key]
+              ? formDataSupplied?.[populatedKey]
+                ? formDataSupplied?.[populatedKey]
+                : formDataSupplied?.[key]
+              : null;
           } else if (type === 'file') {
             acc[key] = formDataSupplied?.[key] ?? null;
           } else if (type === 'filegallery') {
@@ -491,7 +503,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       console.log('Field Value IDs:', fieldValueIds);
       console.log('Matching Values:', matchingValues);
 
-      return matchingValues;
+      return matchingValues[0];
     },
     [slug]
   );
@@ -686,7 +698,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             processedData[key] = value.value;
           } else if (value) {
             processedData[key] = value;
-          } else{
+          } else {
             processedData[key] = null;
           }
         }
@@ -761,6 +773,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   console.log(viewData);
 
   const findMatchingOptionsMemo = React.useMemo(() => {
+    //@ts-ignore
     return (options, fieldValues) => {
       if (!Array.isArray(fieldValues) || !Array.isArray(options)) return [];
 
@@ -774,6 +787,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   }, []);
 
   // 4. ALTERNATIVE: If you need to memoize specific calls, do it at call site
+  //@ts-ignore
   const useMemoizedMatchingOptions = (options, fieldValues) => {
     return React.useMemo(() => {
       if (!Array.isArray(fieldValues) || !Array.isArray(options)) return [];
@@ -874,6 +888,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                             )}
                             {type === 'multiselect' &&
                               React.useMemo(() => {
+                                //@ts-ignore
                                 const fieldOptions = multiSelectData[key] || [];
 
                                 const fieldDefaultValues = (() => {
@@ -883,12 +898,15 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                                     !Array.isArray(fieldOptions)
                                   )
                                     return [];
-
+                                  //@ts-ignore
                                   let fieldValueIds = fieldValues.map(
+                                    //@ts-ignore
                                     (item) => item.id
                                   );
                                   if (!fieldValueIds[0]) {
+                                    //@ts-ignore
                                     fieldValueIds = fieldValues.map(
+                                      //@ts-ignore
                                       (item) => item.value
                                     );
                                   }
@@ -909,125 +927,30 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                                   />
                                 );
                               }, [
+                                //@ts-ignore
                                 multiSelectData[key],
                                 field.value,
                                 field.onChange,
                                 key,
                               ])}
-                            {/* {type === 'singleselect' && (() => {
-                            // Memoize options calculation
-                            const fieldOptions = React.useMemo(() => {
-                              const allOptions = multiSelectData[key] || [];
-
-                              // Check if this field has sync property
-                              if (schema?.property === 'sync' && schema?.id) {
-                                // Find all other fields with the same sync ID
-                                const relatedFields = viewData.displayModel.formFields.filter(
-                                  (f: any) =>
-                                    f.type === 'singleselect' &&
-                                    f.schema?.id === schema.id &&
-                                    f.schema?.property === 'sync' &&
-                                    f.key !== key
-                                );
-                                
-                                const valuesToExclude: any[] = [];
-                                relatedFields.forEach((relatedField: any) => {
-                                  const relatedValue = formValues[relatedField.key];
-
-                                  if (relatedValue) {
-                                    // Handle both object values and direct values
-                                    if (typeof relatedValue === 'object' && relatedValue !== null) {
-                                      if (relatedValue.value) {
-                                        valuesToExclude.push(relatedValue.value);
-                                      }
-                                    } else {
-                                      valuesToExclude.push(relatedValue);
-                                    }
-                                  }
-                                });
-
-                                // Return filtered options
-                                return allOptions.filter(
-                                  (option: any) => !valuesToExclude.includes(option.value)
-                                );
-                              }
-
-                              // No sync needed, return all options
-                              return allOptions;
-                            }, [multiSelectData[key], formValues, schema, viewData.displayModel.formFields]);
-
-                            // Memoize default value calculation
-                            const fieldDefaultValue = React.useMemo(() => {
-                              const fieldValue = field.value || [];
-                              if (!Array.isArray(fieldOptions)) return [];
-                              
-                              // Extract IDs from fieldValues objects
-                              let fieldValueIds = fieldValue.id;
-                              if (!fieldValueIds) {
-                                fieldValueIds = fieldValue.value;
-                              }
-                              
-                              // Find matching options based on the IDs
-                              const matchingValues = fieldOptions.filter(
-                                (option: any) => fieldValueIds === option.value
-                              );
-
-                              return matchingValues;
-                            }, [fieldOptions, field.value]);
-
-                            return (
+                            {type === 'singleselect' && (
                               <Combobox
                                 key={key}
-                                options={fieldOptions}
-                                className="basic-select"
-                                defaultValue={fieldDefaultValue}
-                                onChange={(selected) => {
-                                  console.log(`Field ${key} selected:`, selected);
+                                //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                                options={multiSelectData[key] || []}
+                                className="basic-single-select"
+                                placeholder="Select "
+                                defaultValue={findMatchingOptionsForSingleSelect(
+                                  //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                                  multiSelectData[key] || [],
+                                  field.value || [] // Ensure we are accessing the correct field value
+                                )}
+                                 onChange={(selected) => {
+                                  // Update the field value by combining existing and new selected values
                                   field.onChange(selected);
                                 }}
                               />
-                            );
-                          })()} */}
-                            {type === 'singleselect' &&
-                              React.useMemo(() => {
-                                const fieldOptions = multiSelectData[key] || [];
-
-                                const fieldDefaultValue = (() => {
-                                  const fieldValue = field.value;
-                                  if (
-                                    !fieldValue ||
-                                    !Array.isArray(fieldOptions)
-                                  )
-                                    return null;
-
-                                  let fieldValueId = fieldValue.id;
-                                  if (!fieldValueId) {
-                                    fieldValueId = fieldValue.value;
-                                  }
-
-                                  return (
-                                    fieldOptions.find(
-                                      (option) => option.value === fieldValueId
-                                    ) || null
-                                  );
-                                })();
-
-                                return (
-                                  <Combobox
-                                    key={`${key}-${fieldOptions.length}`}
-                                    options={fieldOptions}
-                                    className="basic-single-select"
-                                    placeholder="Select "
-                                    defaultValue={fieldDefaultValue}
-                                    onChange={field.onChange}
-                                  />
-                                );
-                              }, [
-                                multiSelectData[key],
-                                field.value,
-                                field.onChange,
-                                key,
-                              ])}
+                            )}
                             {type === 'filegallery' && (
                               <div className="p-4" key={key}>
                                 <FileUploader

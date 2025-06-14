@@ -1209,21 +1209,22 @@ const renderTableCell = (
           {dashboardConfig.stats.map((stat) => (
             <div
               key={stat.id}
-              className="p-6 rounded-xl border border-border shadow-sm"
+              className="p-3 rounded-xl border border-border shadow-sm"
             >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">{stat.label}</p>
-                  <p className="text-2xl font-bold mt-1">
+                  {/* <p className="text-2xl font-bold mt-1">
                     {stats[stat.id]?.value}
-                  </p>
+                  </p> */}
                 </div>
                 <div
-                  className={`w-12 h-12 rounded-lg flex items-center justify-center ${getColorByName(
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl font-bold ${getColorByName(
                     stat.color
                   )}`}
                 >
-                  <HugeiconsIcon icon={getIconObject(stat.icon)} />
+                  {/* <HugeiconsIcon icon={getIconObject(stat.icon)} /> */}
+                  {stats[stat.id]?.value}
                 </div>
               </div>
             </div>

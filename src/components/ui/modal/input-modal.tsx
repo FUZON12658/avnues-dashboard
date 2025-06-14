@@ -3,7 +3,7 @@ import React from 'react';
 import { Input } from "../input";
 import { Modal } from './modal-base';
 import { Button } from '../button';
-import { BodyText } from '@/components/Common/typography';
+import { BodyText } from '@/components/common/typography';
 
 interface InputModalProps {
   isOpen: boolean;

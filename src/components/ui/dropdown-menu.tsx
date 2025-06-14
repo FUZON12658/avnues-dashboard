@@ -27,9 +27,11 @@ const Combobox = ({
   const [inputValue, setInputValue] = useState('');
   const [filteredOptions, setFilteredOptions] = useState<ComboboxOption[]>(options);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
+  console.log(defaultValue)
+  console.log(options)
+  console.log(selectedValue)
   // Find the label for the selected value
-  const selectedLabel = options.find(option => option.value === selectedValue)?.label || '';
+  const selectedLabel = options.find(option => option.value === selectedValue.value)?.label || '';
 
   useEffect(() => {
     // Filter options based on input value
@@ -38,6 +40,10 @@ const Combobox = ({
     );
     setFilteredOptions(filtered);
   }, [inputValue, options]);
+
+  useEffect(()=>{
+    setSelectedValue(defaultValue);
+  },[defaultValue])
 
   useEffect(() => {
     // Close dropdown when clicking outside

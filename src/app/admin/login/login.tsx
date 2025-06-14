@@ -13,10 +13,10 @@ export default function AuthComponent() {
           <a href="#" className="flex items-center gap-2 font-medium">
             <div className="flex h-6 w-6 items-center justify-center rounded-md  border-wyfPrimary border text-primary-foreground">
               <div className="w-5 h-5 flex items-center justify-center relative">
-              <ImageWithFallback src="/emblem.png" alt="wyf" imageClassname="object-contain rounded-sm" />
+              <ImageWithFallback src="/atv.svg" alt="wyf" imageClassname="object-contain rounded-sm" />
               </div>
             </div>
-            Club Management Software
+            Avatar
           </a>
         </div>
         <div className="flex flex-1 items-center justify-center">
@@ -27,7 +27,7 @@ export default function AuthComponent() {
       </div>
       <div className="relative hidden bg-transparent lg:block">
         <img
-          src="/clubmgmt.png"
+          src="/atv.svg"
           alt="Image"
           className="absolute inset-0 h-full w-full object-cover"
         />
