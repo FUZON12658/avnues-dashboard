@@ -39,14 +39,12 @@ export default async function RootLayout({
           <ThemeProvider defaultTheme="system">
             <Toaster />
             <AuthProvider session={session}>
-              {session ? (
+
                 <div className="flex">
                   <Sidebar />
                   <div className="flex-grow">{children}</div>
                 </div>
-              ) : (
-                <AuthComponent />
-              )}
+
             </AuthProvider>
           </ThemeProvider>
         </ReactQueryProvider>

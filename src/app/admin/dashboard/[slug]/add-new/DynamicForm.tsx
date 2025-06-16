@@ -164,25 +164,27 @@ interface FormData {
 
 interface DynamicFormProps {
   suppliedId?: string;
-  fixedParentLabel?: string | null;
-  fixedParentKey?: string | null;
-  fixedParentDetails?: any;
-  fixedParentKeyToShow?: string | null;
+  fixedParents?: any
   formDataSupplied?: FormData;
 }
 
+
+// Helper function to check if field is a fixed parent
+const isFixedParentField = (fieldKey: any, fixedParents: any[]) => {
+  return fixedParents?.some(parent => parent.key === fieldKey) || false;
+};
+
+// Helper function to get fixed parent data for a field
+const getFixedParentData = (fieldKey: string, fixedParents: any[]) => {
+  return fixedParents?.find(parent => parent.key === fieldKey)?.details;
+};
+
 export const DynamicForm: React.FC<DynamicFormProps> = ({
   suppliedId,
-  fixedParentLabel,
-  fixedParentKey,
-  fixedParentDetails,
-  fixedParentKeyToShow,
+  fixedParents,
   formDataSupplied,
 }) => {
-  console.log(fixedParentLabel);
-  console.log(fixedParentKey);
-  console.log(fixedParentDetails);
-  console.log(fixedParentKeyToShow);
+  console.log(fixedParents);
   const { slug } = useParams();
   const [files, setFiles] = React.useState<Record<string, File[]>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -920,8 +922,11 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   };
 
   // Original field rendering function (keeping all your existing logic)
-  const renderFormField = (field: any) => (
-    <FormField
+  const renderFormField = (field: any) => {
+      const isFixedParent = isFixedParentField(field.key, fixedParents);
+  const parentData = getFixedParentData(field.key, fixedParents);
+    console.log(JSON.stringify(parentData))
+   return ( <FormField
       control={form.control}
       key={field.key}
       //@ts-ignore
@@ -939,7 +944,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               {field.type === 'text' && (
                 <Input
                   className="border p-2 w-full"
-                  disabled={field.key === fixedParentKey || field.disabled}
+                  disabled={ isFixedParent || field.disabled}
                   {...formField}
                 />
               )}
@@ -947,7 +952,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 <Input
                   type="time"
                   className="border p-2 w-full"
-                  disabled={field.key === fixedParentKey || field.disabled}
+                  disabled={isFixedParent || field.disabled}
                   {...formField}
                 />
               )}
@@ -955,7 +960,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 <Input
                   type="date"
                   className="border p-2 w-full"
-                  disabled={field.key === fixedParentKey || field.disabled}
+                  disabled={isFixedParent || field.disabled}
                   {...formField}
                 />
               )}
@@ -1010,11 +1015,11 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       className="basic-multi-select"
                       placeholder="Select "
                       defaultValues={
-                        field.key === fixedParentKey
-                          ? [fixedParentDetails]
+                        isFixedParent 
+                          ? [parentData]
                           : fieldDefaultValues
                       }
-                      disabled={field.key === fixedParentKey || field.disabled}
+                      disabled={isFixedParent || field.disabled}
                       onChange={formField.onChange}
                     />
                   );
@@ -1033,10 +1038,10 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                   options={multiSelectData[field.key] || []}
                   className="basic-single-select"
                   placeholder="Select "
-                  disabled={field.key === fixedParentKey || field.disabled}
+                  disabled={isFixedParent || field.disabled}
                   defaultValue={
-                    field.key === fixedParentKey
-                      ? fixedParentDetails
+                    isFixedParent 
+                      ? parentData
                       : findMatchingOptionsForSingleSelect(
                           //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
                           multiSelectData[field.key] || [],
@@ -1084,7 +1089,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                   //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
                   options={singleSelectStaticOptions[field.key] || []}
                   className="basic-select"
-                  disabled={field.key === fixedParentKey || field.disabled}
+                  disabled={isFixedParent || field.disabled}
                   defaultValue={formField.value}
                   onChange={(selected) => {
                     formField.onChange(selected);
@@ -1127,7 +1132,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                   type="number"
                   {...formField}
                   className="border p-2 w-full bg-gray-200"
-                  disabled={field.key === fixedParentKey || field.disabled}
+                  disabled={isFixedParent || field.disabled}
                   onChange={(e) => formField.onChange(Number(e.target.value))}
                 />
               )}
@@ -1135,7 +1140,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 <Textarea
                   {...formField}
                   className="border p-2 w-full"
-                  disabled={field.key === fixedParentKey || field.disabled}
+                  disabled={isFixedParent || field.disabled}
                   onChange={(e) => formField.onChange(e.target.value)}
                 />
               )}
@@ -1144,8 +1149,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           <FormMessage />
         </FormItem>
       )}
-    />
-  );
+    />)
+    };
 
   // Modified return statement with new hierarchy: tabs > sections > fields
   return (

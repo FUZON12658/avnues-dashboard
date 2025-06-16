@@ -386,9 +386,11 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
   }
 };
 
-const getAllApi = async (slug: string, fetchLink: string|null) => {
+const getAllApi = async (slug: string, fetchLink: string | null) => {
   const { data } = await axios.get(
-    fetchLink===null ?`${process.env.NEXT_PUBLIC_API_HOST}/api/v1/${slug}`:`${process.env.NEXT_PUBLIC_API_HOST}${fetchLink}`,
+    fetchLink === null
+      ? `${process.env.NEXT_PUBLIC_API_HOST}/api/v1/${slug}`
+      : `${process.env.NEXT_PUBLIC_API_HOST}${fetchLink}`,
     {
       withCredentials: true,
     }
@@ -398,11 +400,14 @@ const getAllApi = async (slug: string, fetchLink: string|null) => {
 
 interface JsonDrivenDashboardProps {
   id?: string;
-  fetchLink?: string|null;
+  fetchLink?: string | null;
 }
 
 // Main Component
-const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id, fetchLink=null }) => {
+const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
+  id,
+  fetchLink = null,
+}) => {
   const router = useRouter();
   const { slug } = useParams();
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -430,24 +435,24 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id, fetchLink
     isError,
   } = useQuery({
     queryFn: () => getAllApi(slug as string, fetchLink),
-    queryKey: id? [`${slug}-view-all`,id]:[`${slug}-view-all`],
+    queryKey: id ? [`${slug}-view-all`, id] : [`${slug}-view-all`],
   });
 
-      const processLink = (link: string, item: ProjectData|null): string => {
-      let processedLink = link;
+  const processLink = (link: string, item: ProjectData | null): string => {
+    let processedLink = link;
 
-      if (item!==null && item.id !== undefined) {
-        processedLink = processedLink.replace('{id}', item.id.toString());
-      }else if(id !== undefined){
-        processedLink = processedLink.replace('{id}', id.toString())
-      }
+    if (item !== null && item.id !== undefined) {
+      processedLink = processedLink.replace('{id}', item.id.toString());
+    } else if (id !== undefined) {
+      processedLink = processedLink.replace('{id}', id.toString());
+    }
 
-      if (slug !== undefined) {
-        processedLink = processedLink.replace('{slug}', slug.toString());
-      }
+    if (slug !== undefined) {
+      processedLink = processedLink.replace('{slug}', slug.toString());
+    }
 
-      return processedLink;
-    };
+    return processedLink;
+  };
 
   React.useEffect(() => {
     if (!backendFetchedData) return;
@@ -965,28 +970,61 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id, fetchLink
     setCurrentPage(1);
   };
 
-  const handleButtonAction = (button: any): void => {
-    if(button.fixedParentLabel){
-      localStorage.setItem("DynamicFormFixedParentLabel", button.fixedParentLabel)
+  const handleButtonAction = async(button: any): Promise<void> => {
+    // if(button.fixedParentLabel){
+    //   localStorage.setItem("DynamicFormFixedParentLabel", button.fixedParentLabel)
+    // }
+
+    // if(button.fetchParentDetailsLink){
+    //   localStorage.setItem("DynamicFormParentsDetailsFetchLink", processLink(button.fetchParentDetailsLink, null  ))
+    // }
+
+    // if(button.fixedParentId){
+    //   localStorage.setItem("DynamicFormOmitParentId",button.fixedParentId)
+    // }
+    // if(button.fixedParentKeyToShow){
+    //   localStorage.setItem("DynamicFormFixedParentKeyToShow", button.fixedParentKeyToShow)
+    // }
+
+    // localStorage.removeItem('DynamicFormFixedParents');
+    console.log(button);
+
+    const processFixedParentsLinks = async (
+      fixedParents: any[],
+      item: ProjectData | null = null
+    ): Promise<any[]> => {
+      return fixedParents.map((parent) => ({
+        ...parent,
+        fetchDetailsLink: processLink(parent.fetchDetailsLink, item),
+      }));
+    };
+
+    localStorage.removeItem('DynamicFormFixedParents');
+
+    if (button.fixedParents && Array.isArray(button.fixedParents)) {
+      // Process all the links in fixedParents before storing
+      const processedFixedParents =await processFixedParentsLinks(
+        button.fixedParents,
+        null
+      );
+      console.log(processedFixedParents);
+      // Store the processed parents configuration as JSON
+      localStorage.setItem(
+        'DynamicFormFixedParents',
+        JSON.stringify(processedFixedParents)
+      );
     }
 
-    if(button.fetchParentDetailsLink){
-      localStorage.setItem("DynamicFormParentsDetailsFetchLink", processLink(button.fetchParentDetailsLink, null  ))
-    }
-
-    if(button.fixedParentId){
-      localStorage.setItem("DynamicFormOmitParentId",button.fixedParentId)
-    }
-    if(button.fixedParentKeyToShow){
-      localStorage.setItem("DynamicFormFixedParentKeyToShow", button.fixedParentKeyToShow)
-    }
     switch (button.action) {
       case 'toggleFilter':
         setIsFilterOpen(!isFilterOpen);
         break;
       case 'addNew':
-        
-        {fetchLink ? router.push(`/admin/dashboard/${slug}/add-new/${id}`):router.push(`/admin/dashboard/${slug}/add-new`) ;}
+        {
+          fetchLink
+            ? router.push(`/admin/dashboard/${slug}/add-new/${id}`)
+            : router.push(`/admin/dashboard/${slug}/add-new`);
+        }
         break;
       default:
         break;
@@ -1099,8 +1137,6 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id, fetchLink
       return variantColors[variant];
     };
 
-
-
     switch (column.type) {
       case 'text':
         const textValue = getValue(column.key);
@@ -1143,7 +1179,10 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id, fetchLink
         );
 
       case 'date':
-        const dateValue = formatDateInNepaliTimezone(getValue(column.key), true);
+        const dateValue = formatDateInNepaliTimezone(
+          getValue(column.key),
+          true
+        );
         return <div className="text-sm">{dateValue ?? '-'}</div>;
 
       case 'maintableactions':
@@ -1158,8 +1197,11 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id, fetchLink
                 if (processedLink.startsWith('http')) {
                   window.open(processedLink, '_blank');
                 } else {
-                  localStorage.setItem('fetchLinkMainTableActions', processLink(action.fetchLink, item));
-                  router.push(processedLink)
+                  localStorage.setItem(
+                    'fetchLinkMainTableActions',
+                    processLink(action.fetchLink, item)
+                  );
+                  router.push(processedLink);
                 }
               };
 
@@ -1286,7 +1328,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id, fetchLink
                 <button
                   key={index}
                   onClick={() => handleButtonAction(button)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                  className={`flex items-center cursor-pointer gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
                     button.type === 'filter' && isFilterOpen
                       ? 'bg-gray-900 text-white'
                       : button.type === 'primary'
