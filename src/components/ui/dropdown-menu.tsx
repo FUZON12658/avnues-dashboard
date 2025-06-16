@@ -12,6 +12,7 @@ type ComboboxProps = {
   placeholder?: string;
   defaultValue?: any;
   className?: string;
+  disabled?: boolean;
   onChange?: (value: string) => void;
 };
 
@@ -20,6 +21,7 @@ const Combobox = ({
   placeholder = 'Select an option',
   defaultValue = '',
   className = '',
+  disabled=false,
   onChange,
 }: ComboboxProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -33,8 +35,8 @@ const Combobox = ({
 
  useEffect(() => {
     // Filter options based on input value
-    const filtered = options.filter(option =>
-      option.label.toLowerCase().includes(inputValue.toLowerCase())
+    const filtered =  options.filter(option =>
+      option.label && option.label.toLowerCase().includes(inputValue.toLowerCase())
     );
     setFilteredOptions(filtered);
   }, [inputValue, options]);
@@ -43,6 +45,7 @@ const Combobox = ({
     if (defaultValue && defaultValue.value) {
       console.log('Setting default value:', defaultValue);
       setSelectedValue(defaultValue.value);
+      onChange && onChange(defaultValue.value)
     }
   }, [defaultValue]);
 
@@ -62,7 +65,6 @@ const Combobox = ({
   }, []);
 
  const handleSelect = (option: ComboboxOption) => {
-    console.log('Selecting option:', option);
     setSelectedValue(option.value);
     setInputValue('');
     setIsOpen(false);
@@ -71,6 +73,7 @@ const Combobox = ({
 
 
   const toggleDropdown = () => {
+    if (disabled) return;
     setIsOpen(!isOpen);
     if (!isOpen) {
       setInputValue('');
@@ -83,11 +86,11 @@ const Combobox = ({
   };
 
   return (
-    <div className={`relative w-full ${className}`} ref={dropdownRef}>
+    <div className={`relative w-full ${className}`} ref={dropdownRef} >
       <div
-        className={`flex items-center w-full px-4 py-3 dark:bg-surface-200 border-border border rounded-sm text-foreground cursor-pointer ${
+        className={` flex items-center w-full px-4 py-3 border-border border rounded-sm text-foreground  ${
           isOpen ? 'ring-2 ring-primary border-transparent shadow-md shadow-primary' : ''
-        }`}
+        } ${disabled?"cursor-not-allowed bg-surface-400 dark:bg-surface-400":"cursor-text dark:bg-surface-200"}`}
         onClick={toggleDropdown}
       >
         {isOpen ? (
@@ -95,18 +98,19 @@ const Combobox = ({
             className="flex-grow bg-transparent focus:outline-none"
             value={inputValue}
             onChange={handleInputChange}
+            disabled={disabled}
             placeholder={placeholder}
             autoFocus
           />
         ) : (
-          <span className={`flex-grow ${!selectedValue ? 'text-gray-400' : ''}`}>
+          <span className={`flex-grow ${!selectedValue ? 'text-gray-400' : ''} ${disabled?"cursor-not-allowed":""}`}>
             {selectedLabel || placeholder}
           </span>
         )}
-        <FaChevronDown
+        {!disabled && <FaChevronDown
           size={18}
           className={`ml-2 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-        />
+        />}
       </div>
 
       {isOpen && (

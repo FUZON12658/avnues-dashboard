@@ -47,6 +47,7 @@ import { Textarea } from '../ui/textarea';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { formatDateInNepaliTimezone } from '@/lib/utils';
 
 export type IconSvgObject =
   | [
@@ -154,6 +155,7 @@ interface MainTableActionType {
   label: string;
   variant: ButtonVariant;
   link: string;
+  fetchLink: string;
   color?: string;
   icon?: string;
   tooltip?: string;
@@ -384,9 +386,9 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
   }
 };
 
-const getAllApi = async (slug: string) => {
+const getAllApi = async (slug: string, fetchLink: string|null) => {
   const { data } = await axios.get(
-    `${process.env.NEXT_PUBLIC_API_HOST}/api/v1/${slug}`,
+    fetchLink===null ?`${process.env.NEXT_PUBLIC_API_HOST}/api/v1/${slug}`:`${process.env.NEXT_PUBLIC_API_HOST}${fetchLink}`,
     {
       withCredentials: true,
     }
@@ -396,10 +398,11 @@ const getAllApi = async (slug: string) => {
 
 interface JsonDrivenDashboardProps {
   id?: string;
+  fetchLink?: string|null;
 }
 
 // Main Component
-const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id }) => {
+const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id, fetchLink=null }) => {
   const router = useRouter();
   const { slug } = useParams();
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -426,9 +429,25 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id }) => {
     isLoading,
     isError,
   } = useQuery({
-    queryFn: () => getAllApi(slug as string),
-    queryKey: [`${slug}-view-all`],
+    queryFn: () => getAllApi(slug as string, fetchLink),
+    queryKey: id? [`${slug}-view-all`,id]:[`${slug}-view-all`],
   });
+
+      const processLink = (link: string, item: ProjectData|null): string => {
+      let processedLink = link;
+
+      if (item!==null && item.id !== undefined) {
+        processedLink = processedLink.replace('{id}', item.id.toString());
+      }else if(id !== undefined){
+        processedLink = processedLink.replace('{id}', id.toString())
+      }
+
+      if (slug !== undefined) {
+        processedLink = processedLink.replace('{slug}', slug.toString());
+      }
+
+      return processedLink;
+    };
 
   React.useEffect(() => {
     if (!backendFetchedData) return;
@@ -946,13 +965,28 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id }) => {
     setCurrentPage(1);
   };
 
-  const handleButtonAction = (action: string): void => {
-    switch (action) {
+  const handleButtonAction = (button: any): void => {
+    if(button.fixedParentLabel){
+      localStorage.setItem("DynamicFormFixedParentLabel", button.fixedParentLabel)
+    }
+
+    if(button.fetchParentDetailsLink){
+      localStorage.setItem("DynamicFormParentsDetailsFetchLink", processLink(button.fetchParentDetailsLink, null  ))
+    }
+
+    if(button.fixedParentId){
+      localStorage.setItem("DynamicFormOmitParentId",button.fixedParentId)
+    }
+    if(button.fixedParentKeyToShow){
+      localStorage.setItem("DynamicFormFixedParentKeyToShow", button.fixedParentKeyToShow)
+    }
+    switch (button.action) {
       case 'toggleFilter':
         setIsFilterOpen(!isFilterOpen);
         break;
       case 'addNew':
-        router.push(`/admin/dashboard/${slug}/add-new`);
+        
+        {fetchLink ? router.push(`/admin/dashboard/${slug}/add-new/${id}`):router.push(`/admin/dashboard/${slug}/add-new`) ;}
         break;
       default:
         break;
@@ -1065,19 +1099,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id }) => {
       return variantColors[variant];
     };
 
-    const processLink = (link: string, item: ProjectData): string => {
-      let processedLink = link;
 
-      if (item.id !== undefined) {
-        processedLink = processedLink.replace('{id}', item.id.toString());
-      }
-
-      if (slug !== undefined) {
-        processedLink = processedLink.replace('{slug}', slug.toString());
-      }
-
-      return processedLink;
-    };
 
     switch (column.type) {
       case 'text':
@@ -1121,7 +1143,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id }) => {
         );
 
       case 'date':
-        const dateValue = getValue(column.key);
+        const dateValue = formatDateInNepaliTimezone(getValue(column.key), true);
         return <div className="text-sm">{dateValue ?? '-'}</div>;
 
       case 'maintableactions':
@@ -1136,7 +1158,8 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id }) => {
                 if (processedLink.startsWith('http')) {
                   window.open(processedLink, '_blank');
                 } else {
-                  window.location.href = processedLink;
+                  localStorage.setItem('fetchLinkMainTableActions', processLink(action.fetchLink, item));
+                  router.push(processedLink)
                 }
               };
 
@@ -1262,7 +1285,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id }) => {
               {dashboardConfig.header.buttons.map((button, index) => (
                 <button
                   key={index}
-                  onClick={() => handleButtonAction(button.action)}
+                  onClick={() => handleButtonAction(button)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
                     button.type === 'filter' && isFilterOpen
                       ? 'bg-gray-900 text-white'

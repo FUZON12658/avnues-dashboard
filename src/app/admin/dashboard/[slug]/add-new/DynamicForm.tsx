@@ -95,7 +95,8 @@ const getValidationSchema = (fields: any) => {
             break;
           }
           fieldSchema = z.string();
-          if (required) fieldSchema = fieldSchema.min(1, `${label} is required`);
+          if (required)
+            fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
         case 'jsonArray':
           fieldSchema = z
@@ -111,7 +112,8 @@ const getValidationSchema = (fields: any) => {
           break;
         case 'htmlfield':
           fieldSchema = z.string();
-          if (required) fieldSchema = fieldSchema.min(1, `${label} is required`);
+          if (required)
+            fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
         case 'file':
           fieldSchema = z.any(); // `File` instance validation may fail in some environments
@@ -124,7 +126,8 @@ const getValidationSchema = (fields: any) => {
           break;
         case 'number':
           fieldSchema = z.number();
-          if (required) fieldSchema = fieldSchema.min(1, `${label} is required`);
+          if (required)
+            fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
         case 'multiselect':
           fieldSchema = z.any();
@@ -137,11 +140,13 @@ const getValidationSchema = (fields: any) => {
           break;
         case 'time':
           fieldSchema = z.string();
-          if (required) fieldSchema = fieldSchema.min(1, `${label} is required`);
+          if (required)
+            fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
         case 'date':
           fieldSchema = z.string();
-          if (required) fieldSchema = fieldSchema.min(1, `${label} is required`);
+          if (required)
+            fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
         default:
           fieldSchema = z.any();
@@ -159,13 +164,25 @@ interface FormData {
 
 interface DynamicFormProps {
   suppliedId?: string;
+  fixedParentLabel?: string | null;
+  fixedParentKey?: string | null;
+  fixedParentDetails?: any;
+  fixedParentKeyToShow?: string | null;
   formDataSupplied?: FormData;
 }
 
 export const DynamicForm: React.FC<DynamicFormProps> = ({
   suppliedId,
+  fixedParentLabel,
+  fixedParentKey,
+  fixedParentDetails,
+  fixedParentKeyToShow,
   formDataSupplied,
 }) => {
+  console.log(fixedParentLabel);
+  console.log(fixedParentKey);
+  console.log(fixedParentDetails);
+  console.log(fixedParentKeyToShow);
   const { slug } = useParams();
   const [files, setFiles] = React.useState<Record<string, File[]>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -773,11 +790,15 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       console.log(processedData);
       if (formDataSupplied) {
         await putDetailsMutation.mutateAsync(processedData);
-        toast.success(`${viewData.displayModel.dashboardConfig.header.entity} updated successfully`);
+        toast.success(
+          `${viewData.displayModel.dashboardConfig.header.entity} updated successfully`
+        );
         setIsSubmitting(false);
       } else {
         await postDetailMutation.mutateAsync(processedData);
-        toast.success(`${viewData.displayModel.dashboardConfig.header.entity} created successfully`);
+        toast.success(
+          `${viewData.displayModel.dashboardConfig.header.entity} created successfully`
+        );
         setIsSubmitting(false);
       }
     } catch (error) {
@@ -909,14 +930,16 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         <FormItem>
           <FormLabel>
             <BodyText variant="trimmed"> {field.label}</BodyText>
-            {field.required && <span className="text-red-500 ml-1 text-xl font-bold">*</span>}
+            {field.required && (
+              <span className="text-red-500 ml-1 text-xl font-bold">*</span>
+            )}
           </FormLabel>
           <FormControl className="">
             <div className="min-w-full">
               {field.type === 'text' && (
                 <Input
                   className="border p-2 w-full"
-                  disabled={field.disabled ?? false}
+                  disabled={field.key === fixedParentKey || field.disabled}
                   {...formField}
                 />
               )}
@@ -924,7 +947,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 <Input
                   type="time"
                   className="border p-2 w-full"
-                  disabled={field.disabled ?? false}
+                  disabled={field.key === fixedParentKey || field.disabled}
                   {...formField}
                 />
               )}
@@ -932,7 +955,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 <Input
                   type="date"
                   className="border p-2 w-full"
-                  disabled={field.disabled ?? false}
+                  disabled={field.key === fixedParentKey || field.disabled}
                   {...formField}
                 />
               )}
@@ -986,7 +1009,12 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       options={fieldOptions}
                       className="basic-multi-select"
                       placeholder="Select "
-                      defaultValues={fieldDefaultValues}
+                      defaultValues={
+                        field.key === fixedParentKey
+                          ? [fixedParentDetails]
+                          : fieldDefaultValues
+                      }
+                      disabled={field.key === fixedParentKey || field.disabled}
                       onChange={formField.onChange}
                     />
                   );
@@ -1005,11 +1033,16 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                   options={multiSelectData[field.key] || []}
                   className="basic-single-select"
                   placeholder="Select "
-                  defaultValue={findMatchingOptionsForSingleSelect(
-                    //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-                    multiSelectData[field.key] || [],
-                    formField.value || []
-                  )}
+                  disabled={field.key === fixedParentKey || field.disabled}
+                  defaultValue={
+                    field.key === fixedParentKey
+                      ? fixedParentDetails
+                      : findMatchingOptionsForSingleSelect(
+                          //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                          multiSelectData[field.key] || [],
+                          formField.value || []
+                        )
+                  }
                   onChange={(selected) => {
                     formField.onChange(selected);
                   }}
@@ -1051,6 +1084,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                   //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
                   options={singleSelectStaticOptions[field.key] || []}
                   className="basic-select"
+                  disabled={field.key === fixedParentKey || field.disabled}
                   defaultValue={formField.value}
                   onChange={(selected) => {
                     formField.onChange(selected);
@@ -1093,7 +1127,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                   type="number"
                   {...formField}
                   className="border p-2 w-full bg-gray-200"
-                  disabled={field.disabled ?? false}
+                  disabled={field.key === fixedParentKey || field.disabled}
                   onChange={(e) => formField.onChange(Number(e.target.value))}
                 />
               )}
@@ -1101,7 +1135,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 <Textarea
                   {...formField}
                   className="border p-2 w-full"
-                  disabled={field.disabled ?? false}
+                  disabled={field.key === fixedParentKey || field.disabled}
                   onChange={(e) => formField.onChange(e.target.value)}
                 />
               )}
@@ -1166,9 +1200,12 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                             General Information
                           </h3>
                           <div className="space-y-4">
-                            {ungroupedFields.map((field) =>
-                              renderFormField(field)
-                            )}
+                            {ungroupedFields.map((field) => {
+                              // if (field.key === fixedParentKey) {
+                              //   return null;
+                              // }
+                              return renderFormField(field);
+                            })}
                           </div>
                         </div>
                       )}

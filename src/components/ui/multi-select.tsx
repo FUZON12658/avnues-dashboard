@@ -11,6 +11,7 @@ type MultiSelectProps = {
   placeholder?: string;
   defaultValues?: (string | MultiSelectOption)[];
   className?: string;
+  disabled?: boolean;
   onChange?: (values: string[]) => void;
 };
 
@@ -19,13 +20,13 @@ const MultiSelect = ({
   placeholder = 'Select options',
   defaultValues = [],
   className = '',
+  disabled,
   onChange,
 }: MultiSelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
   // Process defaultValues to extract string values - memoized to prevent unnecessary recalculations
   const processedDefaultValues = useMemo(() => {
     return defaultValues.map(item => {
@@ -104,6 +105,7 @@ const MultiSelect = ({
   }, []);
 
   const handleSelect = useCallback((option: MultiSelectOption) => {
+        if (disabled) return;
     setSelectedValues(prev => [...prev, option.value]);
     setInputValue('');
     // Keep focus on input after selection
@@ -111,10 +113,12 @@ const MultiSelect = ({
   }, []);
 
   const handleRemove = useCallback((valueToRemove: string) => {
+        if (disabled) return;
     setSelectedValues(prev => prev.filter(value => value !== valueToRemove));
   }, []);
 
   const toggleDropdown = useCallback(() => {
+    if (disabled) return;
     setIsOpen(prev => !prev);
     setInputValue('');
     // Focus the input when opening
@@ -140,23 +144,23 @@ const MultiSelect = ({
   return (
     <div className={`relative w-full ${className}`} ref={dropdownRef}>
       <div
-        className={`flex flex-wrap items-center w-full px-3 py-2 dark:bg-surface-200 border-border border rounded-sm text-foreground cursor-text min-h-12 ${
+        className={`flex flex-wrap items-center w-full px-3 py-2  border-border border rounded-sm text-foreground  min-h-12 ${
           isOpen ? 'ring-2 ring-primary border-transparent shadow-md shadow-primary' : ''
-        }`}
+        }  ${disabled?"cursor-not-allowed bg-surface-400 dark:bg-surface-400":"cursor-text dark:bg-surface-200"}`}
         onClick={toggleDropdown}
       >
         {selectedValues.length > 0 && (
-          <div className="flex flex-wrap gap-2 mr-2">
+            <div className={`flex flex-wrap gap-2 mr-2 ${disabled?"cursor-not-allowed bg-surface-400 dark:bg-surface-400":"cursor-text dark:bg-surface-200"}`}>
             {selectedValues.map(value => {
               const option = options.find(opt => opt.value === value);
               return (
                 <div 
                   key={value}
-                  className="flex items-center gap-1 bg-gray-200 dark:bg-surface-300 rounded-md px-2 py-1 text-sm"
+                  className={`flex items-center gap-1  rounded-md px-2 py-1 text-sm ${disabled?"cursor-not-allowed bg-surface-300 dark:bg-surface-600":"bg-gray-200 dark:bg-surface-300"}`}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <span>{option?.label || value}</span>
-                  <span
+                 {!disabled && <span
                     className="cursor-pointer hover:text-red-500 ml-1 flex items-center justify-center w-4 h-4"
                     onClick={(e) => {
                       e.preventDefault();
@@ -164,8 +168,8 @@ const MultiSelect = ({
                       handleRemove(value);
                     }}
                   >
-                    <FaX size={10} />
-                  </span>
+                     <FaX size={10} />
+                  </span>}
                 </div>
               );
             })}
@@ -173,16 +177,17 @@ const MultiSelect = ({
         )}
         <input
           ref={inputRef}
-          className={`flex-grow bg-transparent focus:outline-none min-w-20 ${selectedValues.length > 0 ? 'w-auto' : 'w-full'}`}
+          className={`flex-grow bg-transparent focus:outline-none min-w-20 ${disabled?"cursor-not-allowed bg-surface-400 dark:bg-surface-400":""} ${selectedValues.length > 0 ? 'w-auto' : 'w-full'}`}
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleInputKeyDown}
           placeholder={selectedValues.length > 0 ? '' : placeholder}
+          disabled={disabled}
         />
-        <FaChevronDown
+        {!disabled && <FaChevronDown
           size={18}
           className={`ml-auto transition-transform ${isOpen ? 'rotate-180' : ''}`}
-        />
+        />}
       </div>
 
       {isOpen && (
