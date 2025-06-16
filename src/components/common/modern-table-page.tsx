@@ -16,6 +16,8 @@ import {
   ArrowRight01Icon,
   InformationCircleIcon,
   QuestionIcon,
+  Edit01Icon,
+  Edit02Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon, IconSvgElement } from '@hugeicons/react';
 import {
@@ -46,7 +48,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 
-type IconSvgObject =
+export type IconSvgObject =
   | [
       string,
       {
@@ -60,6 +62,10 @@ type IconSvgObject =
       }
     ])[];
 // Type Definitions
+
+// Variant type for better type safety
+type ButtonVariant = 'primary' | 'secondary' | 'success' | 'warning' | 'danger';
+
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
@@ -144,11 +150,29 @@ interface ActionType {
   checked?: boolean;
   onChange?: (checked: boolean) => void;
 }
-interface TableColumn {
-  key: keyof ProjectData | 'actions';
+interface MainTableActionType {
   label: string;
-  type: 'text' | 'badge' | 'progress' | 'currency' | 'date' | 'actions';
-  actions?: ActionType[];
+  variant: ButtonVariant;
+  link: string;
+  color?: string;
+  icon?: string;
+  tooltip?: string;
+}
+
+// Updated TableColumn interface with mainTableActions
+interface TableColumn {
+  key: keyof ProjectData | 'actions' | 'maintableactions';
+  label: string;
+  type:
+    | 'text'
+    | 'badge'
+    | 'progress'
+    | 'currency'
+    | 'date'
+    | 'maintableactions'
+    | 'actions';
+  mainTableActions?: MainTableActionType[]; // New property for main table actions
+  actions?: ActionType[]; // Keep existing actions
 }
 
 interface TableConfig {
@@ -370,8 +394,12 @@ const getAllApi = async (slug: string) => {
   return data;
 };
 
+interface JsonDrivenDashboardProps {
+  id?: string;
+}
+
 // Main Component
-const JsonDrivenDashboard: React.FC = () => {
+const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({ id }) => {
   const router = useRouter();
   const { slug } = useParams();
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -1014,85 +1042,139 @@ const JsonDrivenDashboard: React.FC = () => {
     }, obj);
   };
 
-const renderTableCell = (
-  column: TableColumn,
-  item: ProjectData
-): ReactNode => {
-  // Get the value - handle nested properties if key contains dot
-  const getValue = (key: string) => {
-    if (key.includes('.')) {
-      return getNestedValue(item, key);
-    }
-    return item[key as keyof ProjectData];
-  };
+  const renderTableCell = (
+    column: TableColumn,
+    item: ProjectData
+  ): ReactNode => {
+    // Get the value - handle nested properties if key contains dot
+    const getValue = (key: string) => {
+      if (key.includes('.')) {
+        return getNestedValue(item, key);
+      }
+      return item[key as keyof ProjectData];
+    };
 
-  switch (column.type) {
-    case 'text':
-      const textValue = getValue(column.key);
-      return (
-        <div className="text-sm font-medium">
-          {textValue ?? '-'}
-        </div>
-      );
+    const getVariantColor = (variant: ButtonVariant): string => {
+      const variantColors: Record<ButtonVariant, string> = {
+        primary: 'bg-blue-600 hover:bg-blue-700 text-white',
+        secondary: 'bg-gray-600 hover:bg-gray-700 text-white',
+        success: 'bg-green-600 hover:bg-green-700 text-white',
+        warning: 'bg-yellow-600 hover:bg-yellow-700 text-white',
+        danger: 'bg-red-600 hover:bg-red-700 text-white',
+      };
+      return variantColors[variant];
+    };
 
-    case 'badge':
-      const statusValue = getValue(column.key) as string;
-      return (
-        <span
-          className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${getStatusStyle(
-            statusValue
-          )}`}
-        >
-          {statusValue ?? '-'}
-        </span>
-      );
+    const processLink = (link: string, item: ProjectData): string => {
+      let processedLink = link;
 
-    case 'progress':
-      const progressValue = getValue(column.key) as number;
-      return (
-        <div className="flex items-center">
-          <div className="w-16 h-2 bg-gray-200 rounded-full mr-2">
-            <div
-              className="h-2 bg-blue-500 rounded-full transition-all duration-300"
-              style={{ width: `${progressValue || 0}%` }}
-            ></div>
-          </div>
-          <span className="text-sm text-gray-600 min-w-[40px]">
-            {progressValue || 0}%
+      if (item.id !== undefined) {
+        processedLink = processedLink.replace('{id}', item.id.toString());
+      }
+
+      if (slug !== undefined) {
+        processedLink = processedLink.replace('{slug}', slug.toString());
+      }
+
+      return processedLink;
+    };
+
+    switch (column.type) {
+      case 'text':
+        const textValue = getValue(column.key);
+        return <div className="text-sm font-medium">{textValue ?? '-'}</div>;
+
+      case 'badge':
+        const statusValue = getValue(column.key) as string;
+        return (
+          <span
+            className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${getStatusStyle(
+              statusValue
+            )}`}
+          >
+            {statusValue ?? '-'}
           </span>
-        </div>
-      );
+        );
 
-    case 'currency':
-      const amountValue = getValue(column.key) as number;
-      return (
-        <div className="text-sm font-medium">
-          ${(amountValue || 0).toLocaleString()}
-        </div>
-      );
+      case 'progress':
+        const progressValue = getValue(column.key) as number;
+        return (
+          <div className="flex items-center">
+            <div className="w-16 h-2 bg-gray-200 rounded-full mr-2">
+              <div
+                className="h-2 bg-blue-500 rounded-full transition-all duration-300"
+                style={{ width: `${progressValue || 0}%` }}
+              ></div>
+            </div>
+            <span className="text-sm text-gray-600 min-w-[40px]">
+              {progressValue || 0}%
+            </span>
+          </div>
+        );
 
-    case 'date':
-      const dateValue = getValue(column.key);
-      return (
-        <div className="text-sm">{dateValue ?? '-'}</div>
-      );
+      case 'currency':
+        const amountValue = getValue(column.key) as number;
+        return (
+          <div className="text-sm font-medium">
+            ${(amountValue || 0).toLocaleString()}
+          </div>
+        );
 
-    case 'actions':
-      return (
-        <button
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-          onClick={() =>
-            setExpandedRowId(expandedRowId === item.id ? null : item.id)
-          }
-        >
-          <HugeiconsIcon icon={MoreHorizontalCircle01Icon} />
-        </button>
-      );
+      case 'date':
+        const dateValue = getValue(column.key);
+        return <div className="text-sm">{dateValue ?? '-'}</div>;
 
-    default:
-      return <div>-</div>;
-  }
-};
+      case 'maintableactions':
+        const mainActions = column.mainTableActions || [];
+
+        return (
+          <div className="flex items-center gap-2">
+            {mainActions.map((action, index) => {
+              const handleClick = () => {
+                const processedLink = processLink(action.link, item);
+
+                if (processedLink.startsWith('http')) {
+                  window.open(processedLink, '_blank');
+                } else {
+                  window.location.href = processedLink;
+                }
+              };
+
+              return (
+                <button
+                  key={index}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                    action.color || getVariantColor(action.variant)
+                  }`}
+                  onClick={handleClick}
+                  title={action.tooltip}
+                >
+                  {action.label}
+                </button>
+              );
+            })}
+          </div>
+        );
+      case 'actions':
+        return (
+          <button
+            className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+            onClick={() =>
+              setExpandedRowId(expandedRowId === item.id ? null : item.id)
+            }
+          >
+            {expandedRowId === item.id ? (
+              <HugeiconsIcon icon={CancelCircleIcon} />
+            ) : (
+              <HugeiconsIcon icon={Edit02Icon} />
+            )}
+          </button>
+        );
+
+      default:
+        return <div>-</div>;
+    }
+  };
 
   const renderActions = (actions: any[], item: any) => {
     return (

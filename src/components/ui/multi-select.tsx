@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { FaChevronDown, FaX     } from 'react-icons/fa6';
-
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { FaChevronDown, FaX } from 'react-icons/fa6';
 
 type MultiSelectOption = {
   value: string;
@@ -10,7 +9,7 @@ type MultiSelectOption = {
 type MultiSelectProps = {
   options: MultiSelectOption[];
   placeholder?: string;
-  defaultValues?: string[];
+  defaultValues?: (string | MultiSelectOption)[];
   className?: string;
   onChange?: (values: string[]) => void;
 };
@@ -23,24 +22,71 @@ const MultiSelect = ({
   onChange,
 }: MultiSelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedValues, setSelectedValues] = useState<string[]>(defaultValues);
   const [inputValue, setInputValue] = useState('');
-  const [filteredOptions, setFilteredOptions] = useState<MultiSelectOption[]>(options);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Filter out options that are already selected
-  const availableOptions = filteredOptions.filter(
-    option => !selectedValues.includes(option.value)
-  );
+  // Process defaultValues to extract string values - memoized to prevent unnecessary recalculations
+  const processedDefaultValues = useMemo(() => {
+    return defaultValues.map(item => {
+      if (typeof item === 'string') {
+        return item;
+      } else if (item && typeof item === 'object' && 'value' in item) {
+        return item.value;
+      }
+      return String(item);
+    });
+  }, [defaultValues]);
 
+  const [selectedValues, setSelectedValues] = useState<string[]>(processedDefaultValues);
+
+  // Use useRef to track if we should sync with defaultValues
+  const isInitialMount = useRef(true);
+  const lastDefaultValues = useRef<string[]>(processedDefaultValues);
+
+  // Only sync with defaultValues if they actually changed (not due to internal state changes)
   useEffect(() => {
-    // Filter options based on input value
-    const filtered = options.filter(option =>
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    // Check if defaultValues actually changed
+    const currentDefaults = processedDefaultValues;
+    const prevDefaults = lastDefaultValues.current;
+    
+    if (JSON.stringify(currentDefaults) !== JSON.stringify(prevDefaults)) {
+      setSelectedValues(currentDefaults);
+      lastDefaultValues.current = currentDefaults;
+    }
+  }, [processedDefaultValues]);
+
+  // Memoize filtered options to prevent unnecessary recalculations
+  const filteredOptions = useMemo(() => {
+    return options.filter(option =>
       option.label.toLowerCase().includes(inputValue.toLowerCase())
     );
-    setFilteredOptions(filtered);
   }, [inputValue, options]);
+
+  // Filter out options that are already selected
+  const availableOptions = useMemo(() => {
+    return filteredOptions.filter(option => !selectedValues.includes(option.value));
+  }, [filteredOptions, selectedValues]);
+
+  // Memoize onChange callback to prevent unnecessary re-renders
+  const stableOnChange = useCallback(onChange || (() => {}), [onChange]);
+
+  // Use useRef to prevent onChange from triggering on initial render
+  const hasInitialized = useRef(false);
+
+  useEffect(() => {
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      return;
+    }
+    // Only call onChange after initial render and when values actually change
+    stableOnChange(selectedValues);
+  }, [selectedValues, stableOnChange]);
 
   useEffect(() => {
     // Close dropdown when clicking outside
@@ -57,53 +103,39 @@ const MultiSelect = ({
     };
   }, []);
 
-  useEffect(() => {
-    // Call onChange when selected values change
-    onChange && onChange(selectedValues);
-  }, [selectedValues, onChange]);
-
-  const handleSelect = (option: MultiSelectOption) => {
-    const newSelectedValues = [...selectedValues, option.value];
-    setSelectedValues(newSelectedValues);
+  const handleSelect = useCallback((option: MultiSelectOption) => {
+    setSelectedValues(prev => [...prev, option.value]);
     setInputValue('');
     // Keep focus on input after selection
     inputRef.current?.focus();
-  };
+  }, []);
 
-  const handleRemove = (valueToRemove: string, event?: React.MouseEvent) => {
-    // Prevent the dropdown from toggling
-    event?.stopPropagation();
-    
-    const newSelectedValues = selectedValues.filter(
-      value => value !== valueToRemove
-    );
-    setSelectedValues(newSelectedValues);
-  };
+  const handleRemove = useCallback((valueToRemove: string) => {
+    setSelectedValues(prev => prev.filter(value => value !== valueToRemove));
+  }, []);
 
-  const toggleDropdown = () => {
-    setIsOpen(!isOpen);
-    if (!isOpen) {
-      setInputValue('');
-      // Focus the input when opening
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 0);
-    }
-  };
+  const toggleDropdown = useCallback(() => {
+    setIsOpen(prev => !prev);
+    setInputValue('');
+    // Focus the input when opening
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+  }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
     if (!isOpen) {
       setIsOpen(true);
     }
-  };
+  }, [isOpen]);
 
-  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     // Handle backspace to remove the last selected option when input is empty
     if (e.key === 'Backspace' && inputValue === '' && selectedValues.length > 0) {
-      handleRemove(selectedValues[selectedValues.length - 1]);
+      setSelectedValues(prev => prev.slice(0, -1));
     }
-  };
+  }, [inputValue, selectedValues.length]);
 
   return (
     <div className={`relative w-full ${className}`} ref={dropdownRef}>
@@ -123,12 +155,17 @@ const MultiSelect = ({
                   className="flex items-center gap-1 bg-gray-200 dark:bg-surface-300 rounded-md px-2 py-1 text-sm"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <span>{option?.label}</span>
-                  <FaX 
-                    size={12} 
-                    className="cursor-pointer hover:text-red-500" 
-                    onClick={(e) => handleRemove(value, e)}
-                  />
+                  <span>{option?.label || value}</span>
+                  <span
+                    className="cursor-pointer hover:text-red-500 ml-1 flex items-center justify-center w-4 h-4"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleRemove(value);
+                    }}
+                  >
+                    <FaX size={10} />
+                  </span>
                 </div>
               );
             })}

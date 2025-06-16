@@ -34,6 +34,19 @@ import { BodyText, Heading } from '@/components/common/typography';
 import { uploadImageApi } from '@/api/uploadImage';
 import MultiSelect from '@/components/ui/multi-select';
 import Combobox from '@/components/ui/dropdown-menu';
+import {
+  CustomAccordion,
+  CustomAccordionItem,
+  CustomAccordionTrigger,
+  CustomAccordionContent,
+  CustomTabs,
+  CustomTabsList,
+  CustomTabsTrigger,
+  CustomTabsContent,
+} from '@/components/ui/custom-tab';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { SentIcon } from '@hugeicons/core-free-icons';
+import { EnhancedFileUploader } from '@/components/filemanager/file-picker-modal';
 
 const isImageFile = (fileNameOrUrl?: string) => {
   if (!fileNameOrUrl || typeof fileNameOrUrl !== 'string') return false; // Ensure it's a valid string
@@ -63,11 +76,13 @@ const getValidationSchema = (fields: any) => {
   fields.forEach(
     ({
       key,
+      label,
       type,
       required,
       allowAny,
     }: {
       key: any;
+      label: any;
       type: any;
       required: any;
       allowAny: any;
@@ -80,7 +95,7 @@ const getValidationSchema = (fields: any) => {
             break;
           }
           fieldSchema = z.string();
-          if (required) fieldSchema = fieldSchema.min(1, `${key} is required`);
+          if (required) fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
         case 'jsonArray':
           fieldSchema = z
@@ -91,12 +106,12 @@ const getValidationSchema = (fields: any) => {
           if (required) {
             fieldSchema = z
               .array(z.object({}).passthrough())
-              .min(1, `At least one ${key} item is required`);
+              .min(1, `At least one ${label} item is required`);
           }
           break;
         case 'htmlfield':
           fieldSchema = z.string();
-          if (required) fieldSchema = fieldSchema.min(1, `${key} is required`);
+          if (required) fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
         case 'file':
           fieldSchema = z.any(); // `File` instance validation may fail in some environments
@@ -109,7 +124,7 @@ const getValidationSchema = (fields: any) => {
           break;
         case 'number':
           fieldSchema = z.number();
-          if (required) fieldSchema = fieldSchema.min(1, `${key} is required`);
+          if (required) fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
         case 'multiselect':
           fieldSchema = z.any();
@@ -122,7 +137,11 @@ const getValidationSchema = (fields: any) => {
           break;
         case 'time':
           fieldSchema = z.string();
-          if (required) fieldSchema = fieldSchema.min(1, `${key} is required`);
+          if (required) fieldSchema = fieldSchema.min(1, `${label} is required`);
+          break;
+        case 'date':
+          fieldSchema = z.string();
+          if (required) fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
         default:
           fieldSchema = z.any();
@@ -150,7 +169,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   const { slug } = useParams();
   const [files, setFiles] = React.useState<Record<string, File[]>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [formValues, setFormValues] = React.useState({});
+  const [formReady, setFormReady] = React.useState({});
   const queryClient = new QueryClient();
   const [singleSelectStaticOptions, setSingleSelectStaticOptions] =
     React.useState({});
@@ -313,25 +332,44 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 ? formDataSupplied?.[populatedKey]
                 : formDataSupplied?.[key]
               : null;
-            acc[key] = Array.isArray(value)
-              ? value.map((item) =>
-                  typeof item === 'object' && item !== null
-                    ? item
-                    : { label: item, value: item }
-                )
-              : [];
+            console.log(value);
+            // Handle both array (multiselect) and single values (single select)
+            if (Array.isArray(value)) {
+              // For multiselect - process array
+              const dataToPass = value.map((item) =>
+                typeof item === 'object' && item !== null
+                  ? item
+                  : { label: item, value: item }
+              );
+              console.log(dataToPass);
+              acc[key] = dataToPass;
+              console.log('successfully passed the data');
+              console.log(acc[key]);
+            } else if (value !== null) {
+              // For single select - process single value
+
+              acc[key] =
+                typeof value === 'object' && value !== null
+                  ? value
+                  : { label: value, value: value };
+            } else {
+              // No value provided
+              acc[key] = null;
+            }
           } else if (type === 'singleselect') {
-            console.log(formDataSupplied?.[key]);
-            console.log(formDataSupplied?.[populatedKey]);
-            console.log(populatedKey);
-            console.log(key);
             acc[key] = formDataSupplied?.[key]
               ? formDataSupplied?.[populatedKey]
                 ? formDataSupplied?.[populatedKey]
                 : formDataSupplied?.[key]
               : null;
           } else if (type === 'file') {
-            acc[key] = formDataSupplied?.[key] ?? null;
+            // For file fields, use populatedKey if available, otherwise fall back to key
+            const dataKey = populatedKey || key;
+            acc[key] = formDataSupplied?.[dataKey] || null;
+            console.log(
+              `File field ${key}: using ${dataKey}, value:`,
+              acc[key]
+            );
           } else if (type === 'filegallery') {
             acc[key] = formDataSupplied?.[key] ?? null;
 
@@ -368,6 +406,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       );
       console.log(newDefaultValues);
       form.reset(newDefaultValues); // ✅ Dynamically update form values
+      if (newDefaultValues) {
+        setFormReady(newDefaultValues);
+      }
     }
   }, [viewData, form, formDataSupplied]);
 
@@ -621,9 +662,13 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         const fieldType = fieldTypes[key];
 
         // Handle file uploads
-        if (fieldType === 'file' && value instanceof File) {
-          const uploadResponse = await uploadImageMutation.mutateAsync(value);
-          processedData[key] = uploadResponse.url;
+        if (
+          fieldType === 'file' &&
+          typeof value === 'object' &&
+          value !== null
+        ) {
+          //@ts-ignore
+          processedData[key] = value.id;
         }
 
         if (fieldType === 'scorecard') {
@@ -728,11 +773,11 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       console.log(processedData);
       if (formDataSupplied) {
         await putDetailsMutation.mutateAsync(processedData);
-        toast.success('Item updated successfully');
+        toast.success(`${viewData.displayModel.dashboardConfig.header.entity} updated successfully`);
         setIsSubmitting(false);
       } else {
         await postDetailMutation.mutateAsync(processedData);
-        toast.success('Item created successfully');
+        toast.success(`${viewData.displayModel.dashboardConfig.header.entity} created successfully`);
         setIsSubmitting(false);
       }
     } catch (error) {
@@ -800,310 +845,485 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       return options.filter((option) => fieldValueIds.includes(option.value));
     }, [options, fieldValues]); // Memoize based on actual inputs
   };
+  const organizeFields = (formFields: any) => {
+    const tabs = {};
+    const ungroupedFields: any[] = [];
+    //@ts-ignore
+    formFields.forEach((field) => {
+      if (field.tabId) {
+        // Initialize tab if it doesn't exist
+        //@ts-ignore
+        if (!tabs[field.tabId]) {
+          //@ts-ignore
+          tabs[field.tabId] = {
+            id: field.tabId,
+            name: field.tabName || `${field.tabId}`,
+            sections: {},
+            ungroupedFields: [],
+          };
+        }
 
+        if (field.expandableSectionId) {
+          // Initialize section within tab if it doesn't exist
+          //@ts-ignore
+          if (!tabs[field.tabId].sections[field.expandableSectionId]) {
+            //@ts-ignore
+            tabs[field.tabId].sections[field.expandableSectionId] = {
+              id: field.expandableSectionId,
+              name:
+                field.expandableSectionName || `${field.expandableSectionId}`,
+              fields: [],
+            };
+          }
+          // Add field to section within tab
+          //@ts-ignore
+          tabs[field.tabId].sections[field.expandableSectionId].fields.push(
+            field
+          );
+        } else {
+          // Add field directly to tab (ungrouped within tab)
+          //@ts-ignore
+          tabs[field.tabId].ungroupedFields.push(field);
+        }
+      } else if (field.expandableSectionId) {
+        // Fields with section but no tab - treat as ungrouped at top level
+        // (or you could create a default tab for these)
+        ungroupedFields.push(field);
+      } else {
+        // Fields with neither tab nor section
+        ungroupedFields.push(field);
+      }
+    });
+    //@ts-ignore
+    return { tabs, ungroupedFields };
+  };
+
+  // Original field rendering function (keeping all your existing logic)
+  const renderFormField = (field: any) => (
+    <FormField
+      control={form.control}
+      key={field.key}
+      //@ts-ignore
+      name={field.key}
+      render={({ field: formField }) => (
+        <FormItem>
+          <FormLabel>
+            <BodyText variant="trimmed"> {field.label}</BodyText>
+            {field.required && <span className="text-red-500 ml-1 text-xl font-bold">*</span>}
+          </FormLabel>
+          <FormControl className="">
+            <div className="min-w-full">
+              {field.type === 'text' && (
+                <Input
+                  className="border p-2 w-full"
+                  disabled={field.disabled ?? false}
+                  {...formField}
+                />
+              )}
+              {field.type === 'time' && (
+                <Input
+                  type="time"
+                  className="border p-2 w-full"
+                  disabled={field.disabled ?? false}
+                  {...formField}
+                />
+              )}
+              {field.type === 'date' && (
+                <Input
+                  type="date"
+                  className="border p-2 w-full"
+                  disabled={field.disabled ?? false}
+                  {...formField}
+                />
+              )}
+              {field.type === 'htmlfield' && (
+                <div className="w-full -ml-2 mr-auto">
+                  <CustomJodit
+                    ref={editor}
+                    onChange={formField.onChange}
+                    value={formField.value}
+                    variable="blogPreview"
+                    editorStyles="min-width:100% !important;"
+                  />
+                </div>
+              )}
+              {field.type === 'multiselect' &&
+                React.useMemo(() => {
+                  //@ts-ignore
+                  const fieldOptions = multiSelectData[field.key] || [];
+
+                  const fieldDefaultValues = (() => {
+                    //@ts-ignore
+                    const fieldValues =
+                      //@ts-ignore
+                      formReady[field.key] || formField.value || [];
+                    if (
+                      !Array.isArray(fieldValues) ||
+                      !Array.isArray(fieldOptions)
+                    )
+                      return [];
+                    //@ts-ignore
+                    let fieldValueIds = fieldValues.map(
+                      //@ts-ignore
+                      (item) => item.id
+                    );
+                    if (!fieldValueIds[0]) {
+                      //@ts-ignore
+                      fieldValueIds = fieldValues.map(
+                        //@ts-ignore
+                        (item) => item.value
+                      );
+                    }
+
+                    return fieldOptions.filter((option) =>
+                      fieldValueIds.includes(option.value)
+                    );
+                  })();
+
+                  return (
+                    <MultiSelect
+                      key={`${field.key}-${fieldOptions.length}`}
+                      options={fieldOptions}
+                      className="basic-multi-select"
+                      placeholder="Select "
+                      defaultValues={fieldDefaultValues}
+                      onChange={formField.onChange}
+                    />
+                  );
+                }, [
+                  //@ts-ignore
+                  multiSelectData[field.key],
+                  formField.value,
+                  formField.onChange,
+                  field.key,
+                  formReady,
+                ])}
+              {field.type === 'singleselect' && (
+                <Combobox
+                  key={field.key}
+                  //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                  options={multiSelectData[field.key] || []}
+                  className="basic-single-select"
+                  placeholder="Select "
+                  defaultValue={findMatchingOptionsForSingleSelect(
+                    //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                    multiSelectData[field.key] || [],
+                    formField.value || []
+                  )}
+                  onChange={(selected) => {
+                    formField.onChange(selected);
+                  }}
+                />
+              )}
+              {field.type === 'filegallery' && (
+                // <div className="p-4" key={field.key}>
+                //   <FileUploader
+                //     multiple={true}
+                //     files={getFilesForKey(field.key)}
+                //     onFilesChange={(newFiles) => {
+                //       //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                //       handleFileUpload(field.key, newFiles);
+                //     }}
+                //     buttonText="Upload Files"
+                //     id={`file-gallery-upload-${field.key}`}
+                //     accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.docx"
+                //     label={field.label || 'Upload Files'}
+                //   />
+                // </div>
+                <div className="p-4" key={field.key}>
+                  <EnhancedFileUploader
+                    multiple={true}
+                    onFilesChange={(files) => {
+                      // Your handleFileUpload function
+                      //@ts-ignore
+                      handleFileUpload(field.key, files);
+                    }}
+                    //@ts-ignore
+                    value={getFilesForKey(field.key)}
+                    buttonText="Select Files"
+                    id={`file-gallery-upload-${field.key}`}
+                  />
+                </div>
+              )}
+              {field.type === 'singleselectstatic' && (
+                <Combobox
+                  key={field.key}
+                  //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                  options={singleSelectStaticOptions[field.key] || []}
+                  className="basic-select"
+                  defaultValue={formField.value}
+                  onChange={(selected) => {
+                    formField.onChange(selected);
+                  }}
+                  placeholder="Select an option..."
+                />
+              )}
+              {field.type === 'jsonArray' && (
+                <JsonFormField
+                  field={formField}
+                  label={field.label}
+                  schema={field.schema}
+                  required={field.required}
+                  disabled={field.disabled}
+                />
+              )}
+              {field.type === 'file' && (
+                <EnhancedFileUploader
+                  multiple={false}
+                  onFilesChange={(file) => {
+                    formField.onChange(file);
+                  }}
+                  value={formField.value}
+                  buttonText="Select File"
+                  id={`file-upload-${formField.name}`}
+                />
+              )}
+              {field.type === 'switch' && (
+                <Switch
+                  id={field.key}
+                  value={formField?.value || 'No'}
+                  label=""
+                  onChange={(value: any) => {
+                    formField.onChange(value);
+                  }}
+                />
+              )}
+              {field.type === 'number' && (
+                <Input
+                  type="number"
+                  {...formField}
+                  className="border p-2 w-full bg-gray-200"
+                  disabled={field.disabled ?? false}
+                  onChange={(e) => formField.onChange(Number(e.target.value))}
+                />
+              )}
+              {field.type === 'textarea' && (
+                <Textarea
+                  {...formField}
+                  className="border p-2 w-full"
+                  disabled={field.disabled ?? false}
+                  onChange={(e) => formField.onChange(e.target.value)}
+                />
+              )}
+            </div>
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
+  // Modified return statement with new hierarchy: tabs > sections > fields
   return (
     viewData && (
-      <div className="flex flex-col w-full h-full">
-        <Heading variant="h2" className="w-full px-10 mt-6">
-          {formDataSupplied
-            ? `Edit ${String(
-                capitalizeFirstLetter(
-                  viewData.displayModel.dashboardConfig.header.entity
-                )
-              )}`
-            : `Add ${String(
-                capitalizeFirstLetter(
-                  viewData.displayModel.dashboardConfig.header.entity
-                )
-              )}`}
-        </Heading>
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4 w-full px-10 pb-20 mt-4"
-          >
-            {viewData &&
-              viewData.displayModel.formFields.map(
-                ({
-                  key,
-                  label,
-                  type,
-                  disabled,
-                  required,
-                  schema,
-                }: {
-                  key: string;
-                  label: string;
-                  type: string;
-                  disabled?: boolean;
-                  required?: boolean;
-                  schema?: any;
-                }) => (
-                  <FormField
-                    control={form.control}
-                    key={key}
-                    //@ts-ignore
-                    name={key}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          <BodyText variant="trimmed"> {label}</BodyText>
-                        </FormLabel>
-                        <FormControl className="w-[21.75rem]">
-                          <div className="min-w-full">
-                            {type === 'text' && (
-                              <Input
-                                className="border p-2 w-full"
-                                disabled={disabled ?? false}
-                                {...field}
-                              />
-                            )}
-                            {type === 'time' && (
-                              <Input
-                                type="time"
-                                className="border p-2 w-full"
-                                disabled={disabled ?? false}
-                                {...field}
-                              />
-                            )}
-                            {type === 'date' && (
-                              <Input
-                                type="date"
-                                className="border p-2 w-full"
-                                disabled={disabled ?? false}
-                                {...field}
-                              />
-                            )}
-                            {type === 'htmlfield' && (
-                              // <ZoditEditor value={watch(key) || ""} onChange={(content) => setValue(key, content)} />
-                              <div className="w-[798px] -ml-2 mr-auto">
-                                <CustomJodit
-                                  ref={editor}
-                                  onChange={field.onChange}
-                                  value={field.value}
-                                  variable="blogPreview"
-                                  editorStyles="max-width:805px !important;"
-                                />
-                              </div>
-                            )}
-                            {type === 'multiselect' &&
-                              React.useMemo(() => {
-                                //@ts-ignore
-                                const fieldOptions = multiSelectData[key] || [];
+      <div
+        className="flex flex-col w-full h-full min-h-screen "
+        style={{ background: 'var(--background)' }}
+      >
+        <div
+          className="w-full px-10 pt-8 pb-6"
+          style={{
+            background: 'var(--surface-100)',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          <div className="w-full text-2xl py-[0.3125rem] font-bold text-foreground sticky top-0">
+            {formDataSupplied
+              ? `Edit ${String(
+                  capitalizeFirstLetter(
+                    viewData.displayModel.dashboardConfig.header.entity
+                  )
+                )}`
+              : `Add ${String(
+                  capitalizeFirstLetter(
+                    viewData.displayModel.dashboardConfig.header.entity
+                  )
+                )}`}
+          </div>
+        </div>
 
-                                const fieldDefaultValues = (() => {
-                                  const fieldValues = field.value || [];
-                                  if (
-                                    !Array.isArray(fieldValues) ||
-                                    !Array.isArray(fieldOptions)
-                                  )
-                                    return [];
-                                  //@ts-ignore
-                                  let fieldValueIds = fieldValues.map(
-                                    //@ts-ignore
-                                    (item) => item.id
-                                  );
-                                  if (!fieldValueIds[0]) {
-                                    //@ts-ignore
-                                    fieldValueIds = fieldValues.map(
-                                      //@ts-ignore
-                                      (item) => item.value
-                                    );
-                                  }
-
-                                  return fieldOptions.filter((option) =>
-                                    fieldValueIds.includes(option.value)
-                                  );
-                                })();
-
-                                return (
-                                  <MultiSelect
-                                    key={`${key}-${fieldOptions.length}`} // Add options length to key to force re-render when options change
-                                    options={fieldOptions}
-                                    className="basic-multi-select"
-                                    placeholder="Select "
-                                    defaultValues={fieldDefaultValues}
-                                    onChange={field.onChange}
-                                  />
-                                );
-                              }, [
-                                //@ts-ignore
-                                multiSelectData[key],
-                                field.value,
-                                field.onChange,
-                                key,
-                              ])}
-                            {type === 'singleselect' && (
-                              <Combobox
-                                key={key}
-                                //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-                                options={multiSelectData[key] || []}
-                                className="basic-single-select"
-                                placeholder="Select "
-                                defaultValue={findMatchingOptionsForSingleSelect(
-                                  //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-                                  multiSelectData[key] || [],
-                                  field.value || [] // Ensure we are accessing the correct field value
-                                )}
-                                 onChange={(selected) => {
-                                  // Update the field value by combining existing and new selected values
-                                  field.onChange(selected);
-                                }}
-                              />
-                            )}
-                            {type === 'filegallery' && (
-                              <div className="p-4" key={key}>
-                                <FileUploader
-                                  multiple={true}
-                                  files={getFilesForKey(key)} // Pass files for this specific key
-                                  onFilesChange={(newFiles) => {
-                                    //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-                                    handleFileUpload(key, newFiles);
-                                  }}
-                                  buttonText="Upload Files"
-                                  id={`file-gallery-upload-${key}`}
-                                  accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.docx"
-                                  label={label || 'Upload Files'}
-                                />
-                              </div>
-                            )}
-                            {type === 'singleselectstatic' && (
-                              <Combobox
-                                key={key}
-                                // isDisabled={disabled ?? false}
-                                //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-                                options={singleSelectStaticOptions[key] || []}
-                                className="basic-select"
-                                defaultValue={field.value}
-                                onChange={(selected) => {
-                                  field.onChange(selected);
-                                }}
-                                placeholder="Select an option..."
-                              />
-                            )}
-                            {type === 'jsonArray' && (
-                              <JsonFormField
-                                field={field}
-                                label={label}
-                                schema={schema}
-                                required={required}
-                                disabled={disabled}
-                              />
-                            )}
-                            {type === 'file' &&
-                              (!field.value ? (
-                                <FileUploader
-                                  multiple={false}
-                                  onFilesChange={(files) => {
-                                    // Update field with the first file since multiple is false
-                                    if (files && files.length > 0) {
-                                      field.onChange(files[0]);
-                                    } else {
-                                      field.onChange(null);
-                                    }
-                                  }}
-                                  buttonText="Upload File"
-                                  id={`file-upload-${field.name}`}
-                                  // {...props.accept && { accept: props.accept }}
-                                />
-                              ) : (
-                                <div className="mt-2 relative min-w-[5.25rem] min-h-[5.25rem] flex items-center gap-2">
-                                  <X
-                                    className="m-1 absolute top-0 left-0 w-6 h-6 text-red-500 hover:text-red-700 cursor-pointer"
-                                    onClick={() => field.onChange(null)}
-                                  />
-                                  {typeof field.value === 'string' ? (
-                                    // If value is a URL
-                                    isImageFile(field.value) ? (
-                                      <img
-                                        src={field.value}
-                                        alt="Uploaded"
-                                        className="max-w-full max-h-32 rounded-md bg-black"
-                                      />
-                                    ) : (
-                                      <a
-                                        href={field.value}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-500 underline"
-                                      >
-                                        Open File
-                                      </a>
-                                    )
-                                  ) : // If value is a File instance
-                                  //@ts-ignore
-                                  isImageFile(field.value.name) ? (
-                                    <img
-                                      src={URL.createObjectURL(field.value)}
-                                      alt="Uploaded"
-                                      className="max-w-full max-h-32 rounded-md"
-                                    />
-                                  ) : (
-                                    <a
-                                      href={URL.createObjectURL(field.value)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-blue-500 underline"
-                                    >
-                                      Open File
-                                    </a>
-                                  )}
-                                </div>
-                              ))}
-                            {type === 'switch' && (
-                              <Switch
-                                id={key}
-                                value={field?.value || 'No'}
-                                label=""
-                                onChange={(value: any) => {
-                                  field.onChange(value);
-                                }}
-                              />
-                            )}
-                            {type === 'number' && (
-                              <Input
-                                type="number"
-                                {...field}
-                                className="border p-2 w-full bg-gray-200"
-                                disabled={disabled ?? false}
-                                onChange={(e) =>
-                                  field.onChange(Number(e.target.value))
-                                }
-                              />
-                            )}
-                            {type === 'textarea' && (
-                              <Textarea
-                                {...field}
-                                className="border p-2 w-full"
-                                disabled={disabled ?? false}
-                                onChange={(e) => field.onChange(e.target.value)}
-                              />
-                            )}{' '}
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )
-              )}
-            <Button
-              type="submit"
-              className="text-white relative p-2 rounded"
-              disabled={
-                putDetailsMutation.isPending ||
-                postDetailMutation.isPending ||
-                isSubmitting
-              }
+        <div className="flex-1 px-10 py-8">
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="space-y-8 w-full pb-20"
             >
-              {putDetailsMutation.isPending ||
-              postDetailMutation.isPending ||
-              isSubmitting
-                ? 'Please Wait...'
-                : 'Submit'}
-            </Button>
-          </form>
-        </Form>
+              {viewData &&
+                (() => {
+                  const { tabs, ungroupedFields } = organizeFields(
+                    viewData.displayModel.formFields
+                  );
+
+                  return (
+                    <>
+                      {/* Render ungrouped fields first (fields without tabs or sections) */}
+                      {ungroupedFields.length > 0 && (
+                        <div
+                          className="space-y-6 p-6 rounded-lg border border-border"
+                          style={{ background: 'var(--surface-100)' }}
+                        >
+                          <h3 className="text-lg font-semibold text-foreground">
+                            General Information
+                          </h3>
+                          <div className="space-y-4">
+                            {ungroupedFields.map((field) =>
+                              renderFormField(field)
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Render tabs with sections and fields inside */}
+                      {Object.keys(tabs).length > 0 && (
+                        <CustomTabs
+                          defaultValue={Object.keys(tabs)[0]}
+                          className="w-full"
+                        >
+                          <CustomTabsList className="flex">
+                            {Object.values(tabs).map((tab: any) => (
+                              <CustomTabsTrigger key={tab.id} value={tab.id}>
+                                {tab.name}
+                              </CustomTabsTrigger>
+                            ))}
+                          </CustomTabsList>
+                          {Object.values(tabs).map((tab: any) => (
+                            <CustomTabsContent
+                              key={tab.id}
+                              value={tab.id}
+                              className="space-y-6"
+                            >
+                              {/* Render ungrouped fields within this tab */}
+                              {tab.ungroupedFields.length > 0 && (
+                                <div
+                                  className="space-y-6 p-6 rounded-lg border border-border"
+                                  style={{ background: 'var(--surface-100)' }}
+                                >
+                                  <h4 className="text-lg font-medium text-foreground">
+                                    Tab Fields
+                                  </h4>
+                                  <div className="space-y-4">
+                                    {tab.ungroupedFields.map((field: any) =>
+                                      renderFormField(field)
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Render sections within this tab */}
+                              {Object.keys(tab.sections).length > 0 && (
+                                <CustomAccordion
+                                  type="multiple"
+                                  className="w-full"
+                                >
+                                  {Object.values(tab.sections).map(
+                                    (section: any) => (
+                                      <CustomAccordionItem
+                                        key={section.id}
+                                        value={section.id}
+                                      >
+                                        <CustomAccordionTrigger className="text-left">
+                                          {section.name}
+                                        </CustomAccordionTrigger>
+                                        <CustomAccordionContent className="space-y-6">
+                                          <div className="grid gap-6">
+                                            {/* Render fields within this section */}
+                                            {section.fields.map((field: any) =>
+                                              renderFormField(field)
+                                            )}
+                                          </div>
+                                        </CustomAccordionContent>
+                                      </CustomAccordionItem>
+                                    )
+                                  )}
+                                </CustomAccordion>
+                              )}
+                            </CustomTabsContent>
+                          ))}
+                        </CustomTabs>
+                      )}
+                    </>
+                  );
+                })()}
+              <div className="flex sticky bottom-0 w-full bg-background  justify-end pt-2 pb-2 border-t border-border">
+                <Button
+                  type="submit"
+                  className="group relative px-6 py-2.5 rounded-md font-medium text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-75 disabled:hover:scale-100 disabled:hover:shadow-none"
+                  style={{
+                    background:
+                      putDetailsMutation.isPending ||
+                      postDetailMutation.isPending ||
+                      isSubmitting
+                        ? 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)'
+                        : 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark, #2563eb) 100%)',
+                    boxShadow:
+                      '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                  }}
+                  disabled={
+                    putDetailsMutation.isPending ||
+                    postDetailMutation.isPending ||
+                    isSubmitting
+                  }
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    {putDetailsMutation.isPending ||
+                    postDetailMutation.isPending ||
+                    isSubmitting ? (
+                      <svg
+                        className="w-4 h-4 animate-spin"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                    ) : (
+                      <HugeiconsIcon icon={SentIcon} size={`1rem`} />
+                    )}
+                    <span className="text-sm">
+                      {putDetailsMutation.isPending ||
+                      postDetailMutation.isPending ||
+                      isSubmitting
+                        ? 'Processing...'
+                        : 'Submit Form'}
+                    </span>
+                  </div>
+
+                  {/* Shimmer effect for loading state */}
+                  {(putDetailsMutation.isPending ||
+                    postDetailMutation.isPending ||
+                    isSubmitting) && (
+                    <div
+                      className="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
+                      style={{ animation: 'shimmer 2s infinite' }}
+                    />
+                  )}
+                </Button>
+
+                <style jsx>{`
+                  @keyframes shimmer {
+                    0% {
+                      transform: translateX(-100%) skewX(-12deg);
+                    }
+                    100% {
+                      transform: translateX(200%) skewX(-12deg);
+                    }
+                  }
+                `}</style>
+              </div>
+            </form>
+          </Form>
+        </div>
       </div>
     )
   );

@@ -27,13 +27,11 @@ const Combobox = ({
   const [inputValue, setInputValue] = useState('');
   const [filteredOptions, setFilteredOptions] = useState<ComboboxOption[]>(options);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  console.log(defaultValue)
-  console.log(options)
-  console.log(selectedValue)
-  // Find the label for the selected value
-  const selectedLabel = options.find(option => option.value === selectedValue.value)?.label || '';
 
-  useEffect(() => {
+  // Find the label for the selected value
+  const selectedLabel = options.find(option => option.value === selectedValue)?.label || '';
+
+ useEffect(() => {
     // Filter options based on input value
     const filtered = options.filter(option =>
       option.label.toLowerCase().includes(inputValue.toLowerCase())
@@ -41,11 +39,15 @@ const Combobox = ({
     setFilteredOptions(filtered);
   }, [inputValue, options]);
 
-  useEffect(()=>{
-    setSelectedValue(defaultValue);
-  },[defaultValue])
-
   useEffect(() => {
+    if (defaultValue && defaultValue.value) {
+      console.log('Setting default value:', defaultValue);
+      setSelectedValue(defaultValue.value);
+    }
+  }, [defaultValue]);
+
+
+ useEffect(() => {
     // Close dropdown when clicking outside
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -59,13 +61,14 @@ const Combobox = ({
     };
   }, []);
 
-  const handleSelect = (option: ComboboxOption) => {
+ const handleSelect = (option: ComboboxOption) => {
+    console.log('Selecting option:', option);
     setSelectedValue(option.value);
     setInputValue('');
     setIsOpen(false);
-    console.log("on change handler triggered");
     onChange && onChange(option.value);
   };
+
 
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
@@ -112,10 +115,11 @@ const Combobox = ({
             filteredOptions.map((option) => (
               <div
                 key={option.value}
-                className={`px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-surface-300 ${
-                  option.value === selectedValue ? 'bg-gray-100 dark:bg-surface-300' : ''
+                className={`px-4 py-2  hover:bg-gray-100 dark:hover:bg-surface-300 ${
+                  option.value === selectedValue ? 'bg-gray-100 opacity-75 dark:bg-surface-300 cursor-not-allowed' : 'cursor-pointer'
                 }`}
-                onClick={() => handleSelect(option)}
+
+                onClick={() => option.value !== selectedValue && handleSelect(option)}
               >
                 {option.label}
               </div>

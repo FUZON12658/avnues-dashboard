@@ -7,6 +7,7 @@ import { AuthProvider } from '@/components/common/Auth-Provider';
 import { ReactQueryProvider } from '@/components/common/ReactQueryProvider';
 import { getSession } from '@/lib/session';
 import AuthComponent from './login/login';
+import { Toaster } from 'sonner';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -36,6 +37,7 @@ export default async function RootLayout({
       >
         <ReactQueryProvider>
           <ThemeProvider defaultTheme="system">
+            <Toaster />
             <AuthProvider session={session}>
               {session ? (
                 <div className="flex">

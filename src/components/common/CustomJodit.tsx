@@ -113,7 +113,7 @@ const CustomJodit = React.forwardRef<any, EditorProps>((props, ref) => {
           className
         )}
       >
-        <div className={`w-[${width}px]`}>
+        <div className={`min-w-[100%]`}>
           <JoditEditor
             ref={ref}
             value={value}

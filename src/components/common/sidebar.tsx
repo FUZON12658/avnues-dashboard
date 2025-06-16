@@ -11,7 +11,7 @@ import {
   FaGear,
   FaChevronLeft,
 } from 'react-icons/fa6';
-import { HugeiconsIcon } from '@hugeicons/react'
+import { HugeiconsIcon } from '@hugeicons/react';
 // import {
 //   House01Stroke,
 //   ChevronRight01Stroke,
@@ -24,7 +24,20 @@ import { HugeiconsIcon } from '@hugeicons/react'
 //   ChevronLeft01Stroke,
 // } from '@hugeicons/react';
 
-import { Comment01Icon, Coupon01Icon, CourseIcon, File01Icon, Folder03Icon, Home05Icon, News01Icon, Settings01Icon, ShoppingCart01Icon, TeachingIcon, Tv01Icon, UserGroup03Icon } from '@hugeicons/core-free-icons'
+import {
+  Comment01Icon,
+  Coupon01Icon,
+  CourseIcon,
+  File01Icon,
+  Folder03Icon,
+  Home05Icon,
+  News01Icon,
+  Settings01Icon,
+  ShoppingCart01Icon,
+  TeachingIcon,
+  Tv01Icon,
+  UserGroup03Icon,
+} from '@hugeicons/core-free-icons';
 import { FaFile, FaComment } from 'react-icons/fa';
 import { FaNewspaper, FaBookOpen } from 'react-icons/fa6';
 import Link from 'next/link';
@@ -74,8 +87,13 @@ const Sidebar = () => {
           type: 'submenu',
           id: 'news',
           submenu: [
+            {
+              label: 'News Category',
+              link: '/admin/dashboard/article-category',
+              endpoint: '',
+            },
             { label: 'News', link: '/admin/dashboard/articles', endpoint: '' },
-            { label: 'News Category', link: '/admin/dashboard/article-category', endpoint: '' },
+
           ],
         },
         {
@@ -84,9 +102,21 @@ const Sidebar = () => {
           type: 'submenu',
           id: 'programs',
           submenu: [
-            { label: 'Program', link: '/admin/dashboard/programs', endpoint: '' },
-            { label: 'Part', link: '/admin/dashboard/programs-part', endpoint: '' },
-            { label: 'Episode', link: '/admin/dashboard/programs-episode', endpoint: '' },
+            {
+              label: 'Program',
+              link: '/admin/dashboard/programs',
+              endpoint: '',
+            },
+            {
+              label: 'Part',
+              link: '/admin/dashboard/programs-part',
+              endpoint: '',
+            },
+            {
+              label: 'Episode',
+              link: '/admin/dashboard/programs-episode',
+              endpoint: '',
+            },
           ],
         },
       ],
@@ -116,7 +146,6 @@ const Sidebar = () => {
           link: '/admin/dashboard/users',
           endpoint: '',
           type: 'link',
-
         },
         {
           label: 'Media Manager',
@@ -128,7 +157,7 @@ const Sidebar = () => {
         {
           label: 'Settings',
           icon: Settings01Icon,
-          link: '/',
+          link: '/admin/settings',
           endpoint: '',
           type: 'link',
         },
@@ -148,7 +177,9 @@ const Sidebar = () => {
       ? isCollapsed
         ? 'pr-[2.55rem] bg-primary/10 text-primary'
         : 'bg-surface-200'
-      : isCollapsed ? "pr-[2.55rem] hover:bg-surface-100  text-surface-600" :'hover:bg-surface-100  text-surface-600 ';
+      : isCollapsed
+      ? 'pr-[2.55rem] hover:bg-surface-100  text-surface-600'
+      : 'hover:bg-surface-100  text-surface-600 ';
 
     if (item.type === 'link') {
       return (
@@ -157,7 +188,9 @@ const Sidebar = () => {
             href={item.link}
             className={`${commonClasses} ${activeClasses}`}
           >
-            <span className="mr-3 -mt-1"><HugeiconsIcon icon={item.icon} /></span>
+            <span className="mr-3 -mt-1">
+              <HugeiconsIcon icon={item.icon} />
+            </span>
             {
               <span
                 className={`transition-all ease-in-out ${
@@ -181,7 +214,9 @@ const Sidebar = () => {
             onClick={() => toggleMenu(item.id)}
             className={`${commonClasses} ${activeClasses}`}
           >
-            <span className="mr-3"><HugeiconsIcon icon={item.icon} /></span>
+            <span className="mr-3">
+              <HugeiconsIcon icon={item.icon} />
+            </span>
 
             <span
               className={`flex-1 text-left transition-all ease-in-out ${
@@ -258,55 +293,53 @@ const Sidebar = () => {
         />
       </div>
       <div className="h-full flex flex-col transition-opacity ease-in-out">
-        <div className="px-4 py-[0.8125rem] rounded-sm bg-surface-300  m-4 flex">
+        <div className="py-[1.5625rem] min-h-[6rem] max-h-[6rem] flex">
           <Link
             href="/"
-            className="flex items-center space-x-2 mx-auto text-primary"
+            className={`flex items-start text-primary ${
+              isCollapsed ? 'justify-center translate-x-4' : 'justify-start'
+            }`}
           >
-            <img
-              src="/atv.svg"
-              alt="logo"
-              className="h-10"
-            />
+            <img src="/atv.svg" alt="logo" className="h-10" />
+            {<div className={`flex flex-col ${
+                isCollapsed
+                  ? 'opacity-0  pointer-events-none duration-0 absolute'
+                  : 'opacity-100  delay-700 duration-700 pointer-events-auto'
+              }`}>
+              <span className="text-lg font-semibold text-foreground underline underline-offset-4">ATV Platform</span>
+              <span className="text-sm text-gray-600 line-clamp-1">
+                Content Management System
+              </span>
+            </div>}
           </Link>
         </div>
 
         <hr className="m-0 text-border h-[0.125rem]" />
-        <div
-          className={`m-4 w-auto  rounded-sm bg-surface-200 mb-2 ${
-            isCollapsed ? 'p-2' : 'p-4'
-          }`}
-        >
+        <div className="py-[1.5625rem] min-h-[6rem] max-h-[6rem] flex">
           <div
-            className={`flex w-full h-full relative items-center ${
-              isCollapsed ? 'justify-center' : 'justify-start'
+            className={`flex items-start text-primary ${
+              isCollapsed ? 'justify-center translate-x-4' : 'justify-start'
             }`}
           >
-            <img
-              src="/atv.svg"
-              alt="user"
-              className={`h-11 w-11 shadow-sm ${
-                isCollapsed ? 'rounded-sm' : 'rounded-full'
-              }`}
-            />
-            <div
-              className={`left-16 absolute ${
+            <img src="/atv.svg" alt="logo" className="h-10" />
+            {<div className={`flex flex-col ${
                 isCollapsed
-                  ? 'opacity-0  pointer-events-none duration-0 '
+                  ? 'opacity-0  pointer-events-none duration-0 absolute'
                   : 'opacity-100  delay-700 duration-700 pointer-events-auto'
-              }`}
-            >
-              <h6 className="text-base text-foreground font-medium mb-0">
-                Avatar
-              </h6>
-              <small className="text-surface-700 text-sm">Administrator</small>
-            </div>
+              }`}>
+              <span className="text-md text-foreground">Avatar</span>
+              <span className="text-sm text-gray-600 line-clamp-1">
+                Administrator
+              </span>
+            </div>}
           </div>
         </div>
 
         <div
           className={`overflow-y-auto flex-1   ${
-            isCollapsed ? 'px-[1.375rem] overflow-x-hidden hide-scroll-bar' : 'px-2 scrollbar-bg'
+            isCollapsed
+              ? 'px-[1.375rem] overflow-x-hidden hide-scroll-bar'
+              : 'px-2 scrollbar-bg'
           }`}
         >
           {navigationSections.map((section) => (
