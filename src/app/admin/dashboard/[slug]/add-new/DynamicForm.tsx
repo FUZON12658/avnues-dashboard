@@ -163,7 +163,7 @@ interface FormData {
 }
 
 interface DynamicFormProps {
-  suppliedId?: string;
+  suppliedId?: string|null;
   fixedParents?: any
   formDataSupplied?: FormData;
 }
@@ -197,6 +197,22 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     teamOneId: null,
     teamTwoId: null,
   });
+
+    const processLink = (link: string, item: any | null): string => {
+    let processedLink = link;
+
+    if (item !== null && item.id !== undefined) {
+      processedLink = processedLink.replace('{id}', item.id.toString());
+    } else if (suppliedId !==null && suppliedId !== undefined) {
+      processedLink = processedLink.replace('{id}', suppliedId.toString());
+    }
+
+    if (slug !== undefined) {
+      processedLink = processedLink.replace('{slug}', slug.toString());
+    }
+
+    return processedLink;
+  };
 
   // Add state to control scorecard upload visibility
   const [showScorecardUpload, setShowScorecardUpload] = React.useState(false);
@@ -610,7 +626,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         queryKey: [`${slug}-${key}-data`],
         queryFn: () => {
           console.log('Fetching data from:', dataRoute);
-          return getDataFromRoute(dataRoute);
+          return getDataFromRoute(processLink(dataRoute, null));
         },
         enabled: !!viewData && !!dataRoute && !dataFilledRef.current,
         staleTime: Infinity,

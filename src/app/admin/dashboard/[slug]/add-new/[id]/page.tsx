@@ -135,7 +135,7 @@ const page = () => {
     .filter(Boolean); // Remove null entries
 
   return (
-    <DynamicForm fixedParents={processedParents} />
+    <DynamicForm fixedParents={processedParents} suppliedId={id as string} />
   );
 };
 
