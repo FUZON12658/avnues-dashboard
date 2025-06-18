@@ -1,17 +1,10 @@
 'use client';
-import React, { useState } from 'react';
-import {
-  FaHouse,
-  FaAngleRight,
-  FaCartShopping,
-  FaPercent,
-  FaUserTie,
-  FaUser,
-  FaFolder,
-  FaGear,
-  FaChevronLeft,
-} from 'react-icons/fa6';
 import { HugeiconsIcon } from '@hugeicons/react';
+import { useState } from 'react';
+import {
+  FaAngleRight,
+  FaChevronLeft
+} from 'react-icons/fa6';
 // import {
 //   House01Stroke,
 //   ChevronRight01Stroke,
@@ -25,21 +18,13 @@ import { HugeiconsIcon } from '@hugeicons/react';
 // } from '@hugeicons/react';
 
 import {
-  Comment01Icon,
-  Coupon01Icon,
-  CourseIcon,
-  File01Icon,
   Folder03Icon,
   Home05Icon,
   News01Icon,
   Settings01Icon,
-  ShoppingCart01Icon,
-  TeachingIcon,
   Tv01Icon,
-  UserGroup03Icon,
+  UserGroup03Icon
 } from '@hugeicons/core-free-icons';
-import { FaFile, FaComment } from 'react-icons/fa';
-import { FaNewspaper, FaBookOpen } from 'react-icons/fa6';
 import Link from 'next/link';
 
 const Sidebar = () => {
@@ -138,7 +123,7 @@ const Sidebar = () => {
     //   ],
     // },
     {
-      title: 'Advance',
+      title: 'Advanced',
       items: [
         {
           label: 'Users',

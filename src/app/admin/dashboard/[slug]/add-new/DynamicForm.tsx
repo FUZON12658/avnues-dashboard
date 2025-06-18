@@ -48,6 +48,30 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { SentIcon } from '@hugeicons/core-free-icons';
 import { EnhancedFileUploader } from '@/components/filemanager/file-picker-modal';
 
+interface NestedFieldConfig {
+  key: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  disabled?: boolean;
+  tabId?: string;
+  tabName?: string;
+  expandableSectionId?: string;
+  expandableSectionName?: string;
+  // New properties for nested handling
+  children?: NestedFieldConfig[];
+  isNested?: boolean;
+  parentPath?: string;
+  nestingLevel?: number;
+  containerType?: 'object' | 'array';
+  arrayConfig?: {
+    minItems?: number;
+    maxItems?: number;
+    addButtonText?: string;
+    removeButtonText?: string;
+  };
+}
+
 const isImageFile = (fileNameOrUrl?: string) => {
   if (!fileNameOrUrl || typeof fileNameOrUrl !== 'string') return false; // Ensure it's a valid string
 
@@ -163,20 +187,19 @@ interface FormData {
 }
 
 interface DynamicFormProps {
-  suppliedId?: string|null;
-  fixedParents?: any
+  suppliedId?: string | null;
+  fixedParents?: any;
   formDataSupplied?: FormData;
 }
 
-
 // Helper function to check if field is a fixed parent
 const isFixedParentField = (fieldKey: any, fixedParents: any[]) => {
-  return fixedParents?.some(parent => parent.key === fieldKey) || false;
+  return fixedParents?.some((parent) => parent.key === fieldKey) || false;
 };
 
 // Helper function to get fixed parent data for a field
 const getFixedParentData = (fieldKey: string, fixedParents: any[]) => {
-  return fixedParents?.find(parent => parent.key === fieldKey)?.details;
+  return fixedParents?.find((parent) => parent.key === fieldKey)?.details;
 };
 
 export const DynamicForm: React.FC<DynamicFormProps> = ({
@@ -197,13 +220,28 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     teamOneId: null,
     teamTwoId: null,
   });
+  const [arrayItemsState, setArrayItemsState] = React.useState<
+    Record<string, number[]>
+  >({});
 
-    const processLink = (link: string, item: any | null): string => {
+  const getArrayItems = (path: string): number[] => {
+    return arrayItemsState[path] || [0];
+  };
+
+  // Helper function to update array items for a specific field path
+  const updateArrayItems = (path: string, items: number[]) => {
+    setArrayItemsState((prev) => ({
+      ...prev,
+      [path]: items,
+    }));
+  };
+
+  const processLink = (link: string, item: any | null): string => {
     let processedLink = link;
 
     if (item !== null && item.id !== undefined) {
       processedLink = processedLink.replace('{id}', item.id.toString());
-    } else if (suppliedId !==null && suppliedId !== undefined) {
+    } else if (suppliedId !== null && suppliedId !== undefined) {
       processedLink = processedLink.replace('{id}', suppliedId.toString());
     }
 
@@ -447,58 +485,173 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     }
   }, [viewData, form, formDataSupplied]);
 
+  // React.useEffect(() => {
+  //   if (viewData) {
+  //     const staticOptions = {};
+  //     viewData.displayModel.formFields.forEach((field: any) => {
+  //       // Handle singleselectstatic fields
+  //       if (
+  //         field.type === 'singleselectstatic' &&
+  //         Array.isArray(field.values)
+  //       ) {
+  //         //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+  //         staticOptions[field.key] = field.values.map((value) =>
+  //           value.value
+  //             ? {
+  //                 value: value.value,
+  //                 label: value.label,
+  //               }
+  //             : {
+  //                 value,
+  //                 label: value,
+  //               }
+  //         );
+  //       }
+
+  //       // Handle static multiselect options provided directly in formFields
+  //       if (field.type === 'multiselect' && Array.isArray(field.options)) {
+  //         //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+  //         staticOptions[field.key] = field.options;
+
+  //         // Also add these options to the multiSelectData state
+  //         setMultiSelectData((prev) => ({
+  //           ...prev,
+  //           [field.key]: field.options,
+  //         }));
+  //       }
+  //     });
+  //     setSingleSelectStaticOptions(staticOptions);
+  //   }
+  // }, [viewData]);
+
   React.useEffect(() => {
     if (viewData) {
       const staticOptions = {};
-      viewData.displayModel.formFields.forEach((field: any) => {
-        // Handle singleselectstatic fields
-        if (
-          field.type === 'singleselectstatic' &&
-          Array.isArray(field.values)
-        ) {
-          //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-          staticOptions[field.key] = field.values.map((value) =>
-            value.value
-              ? {
-                  value: value.value,
-                  label: value.label,
-                }
-              : {
-                  value,
-                  label: value,
-                }
-          );
-        }
 
-        // Handle static multiselect options provided directly in formFields
-        if (field.type === 'multiselect' && Array.isArray(field.options)) {
-          //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-          staticOptions[field.key] = field.options;
+      const processFields = (fields: any) => {
+        if (!fields || !Array.isArray(fields)) return;
 
-          // Also add these options to the multiSelectData state
-          setMultiSelectData((prev) => ({
-            ...prev,
-            [field.key]: field.options,
-          }));
-        }
-      });
+        fields.forEach((field) => {
+          // Handle singleselectstatic fields
+          console.log('Here single select static');
+          console.log(field);
+          if (
+            field.type === 'singleselectstatic' &&
+            Array.isArray(field.values)
+          ) {
+            //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+            staticOptions[field.key] = field.values.map((value) =>
+              value.value
+                ? {
+                    value: value.value,
+                    label: value.label,
+                  }
+                : {
+                    value,
+                    label: value,
+                  }
+            );
+          }
+
+          // Handle static multiselect options provided directly in formFields
+          if (field.type === 'multiselect' && Array.isArray(field.options)) {
+            //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+            staticOptions[field.key] = field.options;
+
+            // Also add these options to the multiSelectData state
+            setMultiSelectData((prev) => ({
+              ...prev,
+              [field.key]: field.options,
+            }));
+          }
+
+          // Recursively process children
+          if (field.children && Array.isArray(field.children)) {
+            processFields(field.children);
+          }
+        });
+      };
+
+      processFields(viewData.displayModel.formFields);
       setSingleSelectStaticOptions(staticOptions);
     }
   }, [viewData]);
 
-  const multiSelectFields = React.useMemo(
-    () =>
-      viewData?.displayModel?.formFields?.filter(
-        //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-        ({ type, dataRoute, dataToShow, options }) =>
-          // Only include fields that need API data fetching
-          (type === 'multiselect' || type === 'singleselect') &&
-          dataRoute &&
-          dataToShow &&
-          !options // Skip if it has static options
-      ) || [],
-    [viewData]
-  );
+  React.useEffect(() => {
+    console.log('single select aagaman');
+    console.log(singleSelectStaticOptions);
+  }, [singleSelectStaticOptions]);
+
+  const multiSelectFields = React.useMemo(() => {
+    const collectMultiSelectFields = (fields: any) => {
+      //@ts-ignore
+      const result = [];
+      //@ts-ignore
+      if (!fields || !Array.isArray(fields)) return result;
+
+      fields.forEach((field) => {
+        // Check current field
+        if (
+          (field.type === 'multiselect' || field.type === 'singleselect') &&
+          field.dataRoute &&
+          field.dataToShow // Skip if it has static options
+        ) {
+          result.push(field);
+        }
+
+        // Recursively check children
+        if (field.children && Array.isArray(field.children)) {
+          result.push(...collectMultiSelectFields(field.children));
+        }
+      });
+      //@ts-ignore
+      return result;
+    };
+
+    return collectMultiSelectFields(viewData?.displayModel?.formFields || []);
+  }, [viewData]);
+
+  const multiSelectStatic = React.useMemo(() => {
+    const collectStaticMultiSelectFields = (fields: any) => {
+      //@ts-ignore
+      const result = {};
+      //@ts-ignore
+      if (!fields || !Array.isArray(fields)) return result;
+
+      fields.forEach((field) => {
+        // Check current field - only static options (with Values array)
+        if (
+          (field.type === 'multiselect' || field.type === 'singleselect') &&
+          field.values &&
+          Array.isArray(field.values) &&
+          field.values.length > 0
+        ) {
+          // Transform the static options to match your expected format
+          const staticOptions = field.values.map((option: any) => ({
+            value: option.value || option.Value, // Handle both lowercase and uppercase
+            label: option.label || option.Label,
+          }));
+
+          //@ts-ignore
+          result[field.key] = staticOptions;
+        }
+
+        // Recursively check children
+        if (field.children && Array.isArray(field.children)) {
+          const childStaticFields = collectStaticMultiSelectFields(
+            field.children
+          );
+          Object.assign(result, childStaticFields);
+        }
+      });
+
+      return result;
+    };
+
+    return collectStaticMultiSelectFields(
+      viewData?.displayModel?.formFields || []
+    );
+  }, [viewData]);
 
   //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
   const transformQueryData = React.useCallback((data, dataToShow) => {
@@ -616,12 +769,11 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
   React.useEffect(() => {
     console.log('reached here baagagaman');
-    console.log(multiSelectData);
-  }, [multiSelectData]);
+    console.log(multiSelectFields);
+  }, [multiSelectFields]);
 
   const queriesConfig = React.useMemo(
     () =>
-      //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
       multiSelectFields.map(({ key, dataRoute, dataToShow }) => ({
         queryKey: [`${slug}-${key}-data`],
         queryFn: () => {
@@ -653,7 +805,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     );
 
     if (allQueriesSuccessful && viewData) {
-      //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
       const newData = multiSelectFields.reduce((acc, field, index) => {
         //@ts-ignore
         const queryData = multiSelectQueries[index].data.mainData;
@@ -676,6 +827,100 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     transformQueryData,
     isDataComplete,
   ]);
+
+  const transformFormDataToNested = (
+    formData: any,
+    fieldConfig: NestedFieldConfig[]
+  ): any => {
+    const result = {};
+
+    const processField = (
+      field: NestedFieldConfig,
+      data: any,
+      currentResult: any
+    ) => {
+      if (field.children && field.children.length > 0) {
+        if (field.containerType === 'array') {
+          // Handle array fields
+          const arrayData = [];
+          let index = 0;
+
+          // Find all array indices in the form data
+          while (
+            data[`${field.key}[${index}]`] !== undefined ||
+            Object.keys(data).some((key) =>
+              key.startsWith(`${field.key}[${index}].`)
+            )
+          ) {
+            const itemData = {};
+
+            field.children.forEach((childField) => {
+              const childKey = `${field.key}[${index}].${childField.key}`;
+              if (data[childKey] !== undefined) {
+                if (childField.children) {
+                  processField(childField, data, itemData);
+                } else {
+                  //@ts-ignore
+                  itemData[childField.key] = data[childKey];
+                }
+              }
+            });
+
+            if (Object.keys(itemData).length > 0) {
+              arrayData.push(itemData);
+            }
+            index++;
+          }
+
+          if (arrayData.length > 0) {
+            currentResult[field.key] = arrayData;
+          }
+        } else {
+          // Handle object fields
+          const objectData = {};
+          field.children.forEach((childField) => {
+            const childKey = `${field.key}.${childField.key}`;
+            if (data[childKey] !== undefined) {
+              if (childField.children) {
+                processField(childField, data, objectData);
+              } else {
+                //@ts-ignore
+                objectData[childField.key] = data[childKey];
+              }
+            }
+          });
+
+          if (Object.keys(objectData).length > 0) {
+            currentResult[field.key] = objectData;
+          }
+        }
+      } else {
+        // Simple field
+        if (data[field.key] !== undefined) {
+          currentResult[field.key] = data[field.key];
+        }
+      }
+    };
+
+    fieldConfig.forEach((field) => processField(field, formData, result));
+
+    // Add any simple fields that aren't nested
+    Object.keys(formData).forEach((key) => {
+      //@ts-ignore
+      if (
+        !key.includes('.') &&
+        !key.includes('[') &&
+        //@ts-ignore
+        result[key] === undefined
+      ) {
+        //@ts-ignore
+        result[key] = formData[key];
+      }
+    });
+
+    return result;
+  };
+
   //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
   const onSubmit = async (data) => {
     try {
@@ -884,13 +1129,548 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       return options.filter((option) => fieldValueIds.includes(option.value));
     }, [options, fieldValues]); // Memoize based on actual inputs
   };
-  const organizeFields = (formFields: any) => {
+  // const organizeFields = (formFields: any) => {
+  //   const tabs = {};
+  //   const ungroupedFields: any[] = [];
+  //   //@ts-ignore
+  //   formFields.forEach((field) => {
+  //     if (field.tabId) {
+  //       // Initialize tab if it doesn't exist
+  //       //@ts-ignore
+  //       if (!tabs[field.tabId]) {
+  //         //@ts-ignore
+  //         tabs[field.tabId] = {
+  //           id: field.tabId,
+  //           name: field.tabName || `${field.tabId}`,
+  //           sections: {},
+  //           ungroupedFields: [],
+  //         };
+  //       }
+
+  //       if (field.expandableSectionId) {
+  //         // Initialize section within tab if it doesn't exist
+  //         //@ts-ignore
+  //         if (!tabs[field.tabId].sections[field.expandableSectionId]) {
+  //           //@ts-ignore
+  //           tabs[field.tabId].sections[field.expandableSectionId] = {
+  //             id: field.expandableSectionId,
+  //             name:
+  //               field.expandableSectionName || `${field.expandableSectionId}`,
+  //             fields: [],
+  //           };
+  //         }
+  //         // Add field to section within tab
+  //         //@ts-ignore
+  //         tabs[field.tabId].sections[field.expandableSectionId].fields.push(
+  //           field
+  //         );
+  //       } else {
+  //         // Add field directly to tab (ungrouped within tab)
+  //         //@ts-ignore
+  //         tabs[field.tabId].ungroupedFields.push(field);
+  //       }
+  //     } else if (field.expandableSectionId) {
+  //       // Fields with section but no tab - treat as ungrouped at top level
+  //       // (or you could create a default tab for these)
+  //       ungroupedFields.push(field);
+  //     } else {
+  //       // Fields with neither tab nor section
+  //       ungroupedFields.push(field);
+  //     }
+  //   });
+  //   //@ts-ignore
+  //   return { tabs, ungroupedFields };
+  // };
+
+  // Original field rendering function (keeping all your existing logic)
+  const renderFormField = (field: any) => {
+    const isFixedParent = isFixedParentField(field.key, fixedParents);
+    const parentData = getFixedParentData(field.key, fixedParents);
+    console.log(JSON.stringify(parentData));
+    return (
+      <FormField
+        control={form.control}
+        key={field.key}
+        //@ts-ignore
+        name={field.key}
+        render={({ field: formField }) => (
+          <FormItem>
+            <FormLabel>
+              <BodyText variant="trimmed"> {field.label}</BodyText>
+              {field.required && (
+                <span className="text-red-500 ml-1 text-xl font-bold">*</span>
+              )}
+            </FormLabel>
+            <FormControl className="">
+              <div className="min-w-full">
+                {field.type === 'text' && (
+                  <Input
+                    className="border p-2 w-full"
+                    disabled={isFixedParent || field.disabled}
+                    {...formField}
+                  />
+                )}
+                {field.type === 'time' && (
+                  <Input
+                    type="time"
+                    className="border p-2 w-full"
+                    disabled={isFixedParent || field.disabled}
+                    {...formField}
+                  />
+                )}
+                {field.type === 'date' && (
+                  <Input
+                    type="date"
+                    className="border p-2 w-full"
+                    disabled={isFixedParent || field.disabled}
+                    {...formField}
+                  />
+                )}
+                {field.type === 'htmlfield' && (
+                  <div className="w-full -ml-2 mr-auto">
+                    <CustomJodit
+                      ref={editor}
+                      onChange={formField.onChange}
+                      value={formField.value}
+                      variable="blogPreview"
+                      editorStyles="min-width:100% !important;"
+                    />
+                  </div>
+                )}
+                {field.type === 'multiselect' &&
+                  React.useMemo(() => {
+                    //@ts-ignore
+                    const fieldOptions = field.key
+                      ? //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                        multiSelectData[field.key] ||
+                        //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                        multiSelectData[field.key.split('.').pop()!] ||
+                        []
+                      : [];
+
+                    const fieldDefaultValues = (() => {
+                      //@ts-ignore
+                      const fieldValues =
+                        //@ts-ignore
+                        field.key
+                      ? //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                        formReady[field.key] ||
+                        //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                        formReady[field.key.split('.').pop()!] ||
+                        []
+                      : [];
+                      if (
+                        !Array.isArray(fieldValues) ||
+                        !Array.isArray(fieldOptions)
+                      )
+                        return [];
+                      //@ts-ignore
+                      let fieldValueIds = fieldValues.map(
+                        //@ts-ignore
+                        (item) => item.id
+                      );
+                      if (!fieldValueIds[0]) {
+                        //@ts-ignore
+                        fieldValueIds = fieldValues.map(
+                          //@ts-ignore
+                          (item) => item.value
+                        );
+                      }
+
+                      return fieldOptions.filter((option) =>
+                        fieldValueIds.includes(option.value)
+                      );
+                    })();
+
+                    return (
+                      <MultiSelect
+                        key={`${field.key}-${fieldOptions.length}`}
+                        options={fieldOptions}
+                        className="basic-multi-select"
+                        placeholder="Select "
+                        defaultValues={
+                          isFixedParent ? [parentData] : fieldDefaultValues
+                        }
+                        disabled={isFixedParent || field.disabled}
+                        onChange={formField.onChange}
+                      />
+                    );
+                  }, [
+                    //@ts-ignore
+                    multiSelectData[field.key],
+                    formField.value,
+                    formField.onChange,
+                    field.key,
+                    formReady,
+                  ])}
+                {field.type === 'multiselectstatic' &&
+                  React.useMemo(() => {
+                    //@ts-ignore
+                    const fieldOptions = (() => {
+                      // Get static options from field.values
+                      if (
+                        field.values &&
+                        Array.isArray(field.values) &&
+                        field.values.length > 0
+                      ) {
+                        return field.values.map((option:any) => ({
+                          value: option.value || option.Value, // Handle both lowercase and uppercase
+                          label: option.label || option.Label,
+                        }));
+                      }
+                      return [];
+                    })();
+
+                    const fieldDefaultValues = (() => {
+                      //@ts-ignore
+                      const fieldValues =
+                        //@ts-ignore
+                        field.key
+                      ? //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                        formReady[field.key] ||
+                        //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                        formReady[field.key.split('.').pop()!] ||
+                        []
+                      : [];
+
+                      if (
+                        !Array.isArray(fieldValues) ||
+                        !Array.isArray(fieldOptions)
+                      ) {
+                        return [];
+                      }
+
+                      //@ts-ignore
+                      let fieldValueIds = fieldValues.map((item) => item.id);
+                      if (!fieldValueIds[0]) {
+                        //@ts-ignore
+                        fieldValueIds = fieldValues.map((item) => item.value);
+                      }
+
+                      return fieldOptions.filter((option) =>
+                        fieldValueIds.includes(option.value)
+                      );
+                    })();
+
+                    return (
+                      <MultiSelect
+                        key={`${field.key}-${fieldOptions.length}`}
+                        options={fieldOptions}
+                        className="basic-multi-select"
+                        placeholder="Select "
+                        defaultValues={
+                          isFixedParent ? [parentData] : fieldDefaultValues
+                        }
+                        disabled={isFixedParent || field.disabled}
+                        onChange={formField.onChange}
+                      />
+                    );
+                  }, [
+                    //@ts-ignore
+                    field.values, // Static options dependency
+                    formField.value,
+                    formField.onChange,
+                    field.key,
+                    formReady,
+                  ])}
+                {field.type === 'singleselect' && (
+                  <Combobox
+                    key={field.key}
+                    options={
+                      field.key
+                        ? //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                          multiSelectData[field.key] ||
+                          //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                          multiSelectData[field.key.split('.').pop()!] ||
+                          []
+                        : []
+                    }
+                    className="basic-single-select"
+                    placeholder="Select "
+                    disabled={isFixedParent || field.disabled}
+                    defaultValue={
+                      isFixedParent
+                        ? parentData
+                        : findMatchingOptionsForSingleSelect(
+                            //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                            multiSelectData[field.key] || [],
+                            formField.value || []
+                          )
+                    }
+                    onChange={(selected) => {
+                      formField.onChange(selected);
+                    }}
+                  />
+                )}
+                {field.type === 'filegallery' && (
+                  // <div className="p-4" key={field.key}>
+                  //   <FileUploader
+                  //     multiple={true}
+                  //     files={getFilesForKey(field.key)}
+                  //     onFilesChange={(newFiles) => {
+                  //       //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                  //       handleFileUpload(field.key, newFiles);
+                  //     }}
+                  //     buttonText="Upload Files"
+                  //     id={`file-gallery-upload-${field.key}`}
+                  //     accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.docx"
+                  //     label={field.label || 'Upload Files'}
+                  //   />
+                  // </div>
+                  <div className="p-4" key={field.key}>
+                    <EnhancedFileUploader
+                      multiple={true}
+                      onFilesChange={(files) => {
+                        // Your handleFileUpload function
+                        //@ts-ignore
+                        handleFileUpload(field.key, files);
+                      }}
+                      //@ts-ignore
+                      value={getFilesForKey(field.key)}
+                      buttonText="Select Files"
+                      id={`file-gallery-upload-${field.key}`}
+                    />
+                  </div>
+                )}
+                {field.type === 'singleselectstatic' && (
+                  <Combobox
+                    key={field.key}
+                    options={
+                      field.key
+                        ? //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                          singleSelectStaticOptions[field.key] ||
+                          //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+                          singleSelectStaticOptions[
+                            field.key.split('.').pop()!
+                          ] ||
+                          []
+                        : []
+                    }
+                    className="basic-select"
+                    disabled={isFixedParent || field.disabled}
+                    defaultValue={formField.value}
+                    onChange={(selected) => {
+                      formField.onChange(selected);
+                    }}
+                    placeholder="Select an option..."
+                  />
+                )}
+                {field.type === 'jsonArray' && (
+                  <JsonFormField
+                    field={formField}
+                    label={field.label}
+                    schema={field.schema}
+                    required={field.required}
+                    disabled={field.disabled}
+                  />
+                )}
+                {field.type === 'file' && (
+                  <EnhancedFileUploader
+                    multiple={false}
+                    onFilesChange={(file) => {
+                      formField.onChange(file);
+                    }}
+                    value={formField.value}
+                    buttonText="Select File"
+                    id={`file-upload-${formField.name}`}
+                  />
+                )}
+                {field.type === 'switch' && (
+                  <Switch
+                    id={field.key}
+                    value={formField?.value || 'No'}
+                    label=""
+                    onChange={(value: any) => {
+                      formField.onChange(value);
+                    }}
+                  />
+                )}
+                {field.type === 'number' && (
+                  <Input
+                    type="number"
+                    {...formField}
+                    className="border p-2 w-full bg-gray-200"
+                    disabled={isFixedParent || field.disabled}
+                    onChange={(e) => formField.onChange(Number(e.target.value))}
+                  />
+                )}
+                {field.type === 'textarea' && (
+                  <Textarea
+                    {...formField}
+                    className="border p-2 w-full"
+                    disabled={isFixedParent || field.disabled}
+                    onChange={(e) => formField.onChange(e.target.value)}
+                  />
+                )}
+              </div>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+  };
+
+  const createNestedPath = (
+    parentPath: string,
+    childKey: string,
+    index?: number
+  ): string => {
+    if (!parentPath) return childKey;
+    if (typeof index === 'number') {
+      return `${parentPath}[${index}].${childKey}`;
+    }
+    return `${parentPath}.${childKey}`;
+  };
+
+  // Recursive function to render nested fields
+  const renderNestedField = (
+    field: NestedFieldConfig,
+    parentPath: string = '',
+    level: number = 0,
+    arrayIndex?: number
+  ): any => {
+    const currentPath =
+      arrayIndex !== undefined
+        ? createNestedPath(parentPath, field.key, arrayIndex)
+        : createNestedPath(parentPath, field.key);
+
+    // If this field has children, render as a nested container
+    if (field.children && field.children.length > 0) {
+      return renderNestedContainer(field, currentPath, level);
+    }
+
+    // Otherwise, render as a regular field using your existing renderFormField
+    const adaptedField = {
+      ...field,
+      key: currentPath, // Use the nested path as the key
+      parentPath,
+      nestingLevel: level,
+    };
+
+    return (
+      <div
+        key={currentPath}
+        className={`nested-field-wrapper level-${level}`}
+        style={{ marginLeft: `${level * 16}px` }}
+      >
+        {renderFormField(adaptedField)}
+      </div>
+    );
+  };
+
+  // Function to render nested containers (objects or arrays)
+  const renderNestedContainer = (
+    field: NestedFieldConfig,
+    currentPath: string,
+    level: number
+  ): any => {
+    // Use the component-level state instead of local useState
+    const arrayItems = getArrayItems(currentPath);
+
+    if (field.containerType === 'array') {
+      return (
+        <div className="nested-array-container">
+          <div className="flex items-center justify-between mb-4">
+            <FormLabel>
+              <BodyText variant="trimmed">{field.label}</BodyText>
+              {field.required && (
+                <span className="text-red-500 ml-1 text-xl font-bold">*</span>
+              )}
+            </FormLabel>
+            <Button
+              type="button"
+              onClick={() => {
+                const newIndex = Math.max(...arrayItems) + 1;
+                updateArrayItems(currentPath, [...arrayItems, newIndex]);
+              }}
+            >
+              {field.arrayConfig?.addButtonText || 'Add Item'}
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {arrayItems.map((itemIndex, index) => (
+              <div
+                key={`${currentPath}-${itemIndex}`}
+                className="relative border rounded-lg p-4"
+                style={{ background: 'var(--surface-50)' }}
+              >
+                {arrayItems.length > 1 && (
+                  <Button
+                    type="button"
+                    className="absolute top-2 right-2"
+                    onClick={() => {
+                      const newItems = arrayItems.filter((_, i) => i !== index);
+                      updateArrayItems(currentPath, newItems);
+                    }}
+                  >
+                    {field.arrayConfig?.removeButtonText || 'Remove'}
+                  </Button>
+                )}
+
+                <div className="space-y-4 pr-16">
+                  {field.children?.map((childField) =>
+                    renderNestedField(
+                      childField,
+                      currentPath,
+                      level + 1,
+                      itemIndex
+                    )
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Object container
+    return (
+      <div className="nested-object-container">
+        <FormLabel className="mb-4 block">
+          <BodyText variant="trimmed">{field.label}</BodyText>
+          {field.required && (
+            <span className="text-red-500 ml-1 text-xl font-bold">*</span>
+          )}
+        </FormLabel>
+
+        <div
+          className="space-y-4 border rounded-lg p-4"
+          style={{
+            background: 'var(--surface-50)',
+            borderLeft: `3px solid var(--primary)`,
+            marginLeft: `${level * 8}px`,
+          }}
+        >
+          {field.children?.map((childField) =>
+            renderNestedField(childField, currentPath, level + 1)
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const organizeNestedFields = (formFields: NestedFieldConfig[]) => {
     const tabs = {};
-    const ungroupedFields: any[] = [];
-    //@ts-ignore
-    formFields.forEach((field) => {
+    const ungroupedFields: NestedFieldConfig[] = [];
+
+    const processField = (
+      field: NestedFieldConfig,
+      parentPath: string = ''
+    ) => {
+      // Process nested children first
+      if (field.children) {
+        field.children = field.children.map((child) => ({
+          ...child,
+          parentPath: createNestedPath(parentPath, field.key),
+          nestingLevel: (field.nestingLevel || 0) + 1,
+        }));
+      }
+
+      // Then organize by tabs/sections (your existing logic)
       if (field.tabId) {
-        // Initialize tab if it doesn't exist
         //@ts-ignore
         if (!tabs[field.tabId]) {
           //@ts-ignore
@@ -903,7 +1683,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         }
 
         if (field.expandableSectionId) {
-          // Initialize section within tab if it doesn't exist
           //@ts-ignore
           if (!tabs[field.tabId].sections[field.expandableSectionId]) {
             //@ts-ignore
@@ -914,260 +1693,34 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               fields: [],
             };
           }
-          // Add field to section within tab
           //@ts-ignore
           tabs[field.tabId].sections[field.expandableSectionId].fields.push(
             field
           );
         } else {
-          // Add field directly to tab (ungrouped within tab)
           //@ts-ignore
           tabs[field.tabId].ungroupedFields.push(field);
         }
       } else if (field.expandableSectionId) {
-        // Fields with section but no tab - treat as ungrouped at top level
-        // (or you could create a default tab for these)
         ungroupedFields.push(field);
       } else {
-        // Fields with neither tab nor section
         ungroupedFields.push(field);
       }
-    });
-    //@ts-ignore
+    };
+
+    formFields.forEach((field) => processField(field));
     return { tabs, ungroupedFields };
   };
 
-  // Original field rendering function (keeping all your existing logic)
-  const renderFormField = (field: any) => {
-      const isFixedParent = isFixedParentField(field.key, fixedParents);
-  const parentData = getFixedParentData(field.key, fixedParents);
-    console.log(JSON.stringify(parentData))
-   return ( <FormField
-      control={form.control}
-      key={field.key}
-      //@ts-ignore
-      name={field.key}
-      render={({ field: formField }) => (
-        <FormItem>
-          <FormLabel>
-            <BodyText variant="trimmed"> {field.label}</BodyText>
-            {field.required && (
-              <span className="text-red-500 ml-1 text-xl font-bold">*</span>
-            )}
-          </FormLabel>
-          <FormControl className="">
-            <div className="min-w-full">
-              {field.type === 'text' && (
-                <Input
-                  className="border p-2 w-full"
-                  disabled={ isFixedParent || field.disabled}
-                  {...formField}
-                />
-              )}
-              {field.type === 'time' && (
-                <Input
-                  type="time"
-                  className="border p-2 w-full"
-                  disabled={isFixedParent || field.disabled}
-                  {...formField}
-                />
-              )}
-              {field.type === 'date' && (
-                <Input
-                  type="date"
-                  className="border p-2 w-full"
-                  disabled={isFixedParent || field.disabled}
-                  {...formField}
-                />
-              )}
-              {field.type === 'htmlfield' && (
-                <div className="w-full -ml-2 mr-auto">
-                  <CustomJodit
-                    ref={editor}
-                    onChange={formField.onChange}
-                    value={formField.value}
-                    variable="blogPreview"
-                    editorStyles="min-width:100% !important;"
-                  />
-                </div>
-              )}
-              {field.type === 'multiselect' &&
-                React.useMemo(() => {
-                  //@ts-ignore
-                  const fieldOptions = multiSelectData[field.key] || [];
+  const renderEnhancedFormField = (field: NestedFieldConfig): any => {
+    // If field has children, use nested rendering
+    if (field.children && field.children.length > 0) {
+      return renderNestedField(field);
+    }
 
-                  const fieldDefaultValues = (() => {
-                    //@ts-ignore
-                    const fieldValues =
-                      //@ts-ignore
-                      formReady[field.key] || formField.value || [];
-                    if (
-                      !Array.isArray(fieldValues) ||
-                      !Array.isArray(fieldOptions)
-                    )
-                      return [];
-                    //@ts-ignore
-                    let fieldValueIds = fieldValues.map(
-                      //@ts-ignore
-                      (item) => item.id
-                    );
-                    if (!fieldValueIds[0]) {
-                      //@ts-ignore
-                      fieldValueIds = fieldValues.map(
-                        //@ts-ignore
-                        (item) => item.value
-                      );
-                    }
-
-                    return fieldOptions.filter((option) =>
-                      fieldValueIds.includes(option.value)
-                    );
-                  })();
-
-                  return (
-                    <MultiSelect
-                      key={`${field.key}-${fieldOptions.length}`}
-                      options={fieldOptions}
-                      className="basic-multi-select"
-                      placeholder="Select "
-                      defaultValues={
-                        isFixedParent 
-                          ? [parentData]
-                          : fieldDefaultValues
-                      }
-                      disabled={isFixedParent || field.disabled}
-                      onChange={formField.onChange}
-                    />
-                  );
-                }, [
-                  //@ts-ignore
-                  multiSelectData[field.key],
-                  formField.value,
-                  formField.onChange,
-                  field.key,
-                  formReady,
-                ])}
-              {field.type === 'singleselect' && (
-                <Combobox
-                  key={field.key}
-                  //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-                  options={multiSelectData[field.key] || []}
-                  className="basic-single-select"
-                  placeholder="Select "
-                  disabled={isFixedParent || field.disabled}
-                  defaultValue={
-                    isFixedParent 
-                      ? parentData
-                      : findMatchingOptionsForSingleSelect(
-                          //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-                          multiSelectData[field.key] || [],
-                          formField.value || []
-                        )
-                  }
-                  onChange={(selected) => {
-                    formField.onChange(selected);
-                  }}
-                />
-              )}
-              {field.type === 'filegallery' && (
-                // <div className="p-4" key={field.key}>
-                //   <FileUploader
-                //     multiple={true}
-                //     files={getFilesForKey(field.key)}
-                //     onFilesChange={(newFiles) => {
-                //       //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-                //       handleFileUpload(field.key, newFiles);
-                //     }}
-                //     buttonText="Upload Files"
-                //     id={`file-gallery-upload-${field.key}`}
-                //     accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.docx"
-                //     label={field.label || 'Upload Files'}
-                //   />
-                // </div>
-                <div className="p-4" key={field.key}>
-                  <EnhancedFileUploader
-                    multiple={true}
-                    onFilesChange={(files) => {
-                      // Your handleFileUpload function
-                      //@ts-ignore
-                      handleFileUpload(field.key, files);
-                    }}
-                    //@ts-ignore
-                    value={getFilesForKey(field.key)}
-                    buttonText="Select Files"
-                    id={`file-gallery-upload-${field.key}`}
-                  />
-                </div>
-              )}
-              {field.type === 'singleselectstatic' && (
-                <Combobox
-                  key={field.key}
-                  //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-                  options={singleSelectStaticOptions[field.key] || []}
-                  className="basic-select"
-                  disabled={isFixedParent || field.disabled}
-                  defaultValue={formField.value}
-                  onChange={(selected) => {
-                    formField.onChange(selected);
-                  }}
-                  placeholder="Select an option..."
-                />
-              )}
-              {field.type === 'jsonArray' && (
-                <JsonFormField
-                  field={formField}
-                  label={field.label}
-                  schema={field.schema}
-                  required={field.required}
-                  disabled={field.disabled}
-                />
-              )}
-              {field.type === 'file' && (
-                <EnhancedFileUploader
-                  multiple={false}
-                  onFilesChange={(file) => {
-                    formField.onChange(file);
-                  }}
-                  value={formField.value}
-                  buttonText="Select File"
-                  id={`file-upload-${formField.name}`}
-                />
-              )}
-              {field.type === 'switch' && (
-                <Switch
-                  id={field.key}
-                  value={formField?.value || 'No'}
-                  label=""
-                  onChange={(value: any) => {
-                    formField.onChange(value);
-                  }}
-                />
-              )}
-              {field.type === 'number' && (
-                <Input
-                  type="number"
-                  {...formField}
-                  className="border p-2 w-full bg-gray-200"
-                  disabled={isFixedParent || field.disabled}
-                  onChange={(e) => formField.onChange(Number(e.target.value))}
-                />
-              )}
-              {field.type === 'textarea' && (
-                <Textarea
-                  {...formField}
-                  className="border p-2 w-full"
-                  disabled={isFixedParent || field.disabled}
-                  onChange={(e) => formField.onChange(e.target.value)}
-                />
-              )}
-            </div>
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />)
-    };
-
+    // Otherwise, use your existing renderFormField function
+    return renderFormField(field);
+  };
   // Modified return statement with new hierarchy: tabs > sections > fields
   return (
     viewData && (
@@ -1205,7 +1758,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             >
               {viewData &&
                 (() => {
-                  const { tabs, ungroupedFields } = organizeFields(
+                  const { tabs, ungroupedFields } = organizeNestedFields(
                     viewData.displayModel.formFields
                   );
 
@@ -1225,7 +1778,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                               // if (field.key === fixedParentKey) {
                               //   return null;
                               // }
-                              return renderFormField(field);
+                              return renderEnhancedFormField(field);
                             })}
                           </div>
                         </div>
@@ -1261,7 +1814,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                                   </h4>
                                   <div className="space-y-4">
                                     {tab.ungroupedFields.map((field: any) =>
-                                      renderFormField(field)
+                                      renderEnhancedFormField(field)
                                     )}
                                   </div>
                                 </div>
@@ -1286,7 +1839,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                                           <div className="grid gap-6">
                                             {/* Render fields within this section */}
                                             {section.fields.map((field: any) =>
-                                              renderFormField(field)
+                                              renderEnhancedFormField(field)
                                             )}
                                           </div>
                                         </CustomAccordionContent>

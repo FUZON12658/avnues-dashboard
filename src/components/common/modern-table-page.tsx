@@ -953,7 +953,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
       dashboardConfig.stats.reduce((acc, stat) => {
         acc[stat.id] = {
           ...stat,
-          value: backenddata.stats[stat.id], // Just use raw backend value
+          value:backenddata && backenddata.stats && backenddata.stats[stat.id], // Just use raw backend value
         };
         return acc;
       }, {} as Record<string, StatResult>)
