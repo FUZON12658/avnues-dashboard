@@ -42,10 +42,10 @@ const Combobox = ({
   }, [inputValue, options]);
 
   useEffect(() => {
-    if (defaultValue && defaultValue.value) {
+    if (defaultValue && defaultValue.value && selectedValue!==defaultValue.value) {
       console.log('Setting default value:', defaultValue);
       setSelectedValue(defaultValue.value);
-      onChange && onChange(defaultValue.value)
+      // !defaultValue && onChange && onChange(defaultValue.value)
     }
   }, [defaultValue]);
 
