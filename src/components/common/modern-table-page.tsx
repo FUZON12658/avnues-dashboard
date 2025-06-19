@@ -45,9 +45,90 @@ import IconCombobox from '@/components/ui/icon-dropdown-menu';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { formatDateInNepaliTimezone } from '@/lib/utils';
+
+const DeleteConfirmationModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  itemName = 'item',
+}: {
+  isOpen: any;
+  onClose: any;
+  onConfirm: any;
+  itemName: any;
+}) => {
+  const [confirmText, setConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  console.log('delete odal called');
+  const handleConfirm = async () => {
+    if (confirmText === 'CONFIRM') {
+      setIsDeleting(true);
+      try {
+        await onConfirm();
+        setConfirmText('');
+        onClose();
+      } catch (error) {
+        console.error('Delete failed:', error);
+        // You might want to show an error message to the user here
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  };
+
+  const handleClose = () => {
+    setConfirmText('');
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed w-full h-full inset-0 bg-background/60 backdrop-blur-md bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-background border border-border rounded-lg p-6 max-w-md w-full mx-4 shadow-lg">
+        <h2 className="text-xl font-semibold mb-4 text-foreground">
+          Delete {itemName}
+        </h2>
+
+        <p className="text-gray-700 mb-4">
+          This action cannot be undone. To confirm deletion, please type{' '}
+          <span className="font-semibold text-red-600">CONFIRM</span> below:
+        </p>
+
+        <input
+          type="text"
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          placeholder="Type CONFIRM to delete"
+          className="w-full px-3 py-2 border border-border rounded-md mb-4 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          disabled={isDeleting}
+        />
+
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={handleClose}
+            disabled={isDeleting}
+            className="px-4 py-2 border border-border rounded-md text-foreground hover:bg-surface-100 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={confirmText !== 'CONFIRM' || isDeleting}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Complete delete API function
 
 export type IconSvgObject =
   | [
@@ -428,6 +509,12 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
       data.filter((d) => d.status === 'In Progress').length,
     // etc.
   };
+  const queryClient = useQueryClient();
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    itemId: null,
+    itemName: '',
+  });
   console.log(slug);
   const {
     data: backendFetchedData,
@@ -453,7 +540,24 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
 
     return processedLink;
   };
+  const deleteItemApi = async (id:string) => {
+    const response = await axios.delete(
+      `${process.env.NEXT_PUBLIC_API_HOST}${backendFetchedData?.displayModel?.actions?.delete?.actionRoute}${id}`,
+      {
+        withCredentials: true,
+      }
+    );
+    return response.data;
+  };
 
+  const deleteItemMutation = useMutation({
+    mutationFn: deleteItemApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: id ? [`${slug}-view-all`, id] : [`${slug}-view-all`],
+      });
+    },
+  });
   React.useEffect(() => {
     if (!backendFetchedData) return;
     setBackendata(backendFetchedData);
@@ -953,7 +1057,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
       dashboardConfig.stats.reduce((acc, stat) => {
         acc[stat.id] = {
           ...stat,
-          value:backenddata && backenddata.stats && backenddata.stats[stat.id], // Just use raw backend value
+          value: backenddata && backenddata.stats && backenddata.stats[stat.id], // Just use raw backend value
         };
         return acc;
       }, {} as Record<string, StatResult>)
@@ -970,7 +1074,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
     setCurrentPage(1);
   };
 
-  const handleButtonAction = async(button: any): Promise<void> => {
+  const handleButtonAction = async (button: any): Promise<void> => {
     // if(button.fixedParentLabel){
     //   localStorage.setItem("DynamicFormFixedParentLabel", button.fixedParentLabel)
     // }
@@ -1003,7 +1107,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
 
     if (button.fixedParents && Array.isArray(button.fixedParents)) {
       // Process all the links in fixedParents before storing
-      const processedFixedParents =await processFixedParentsLinks(
+      const processedFixedParents = await processFixedParentsLinks(
         button.fixedParents,
         null
       );
@@ -1242,6 +1346,15 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
   };
 
   const renderActions = (actions: any[], item: any) => {
+    const handleDeleteClick = (deleteAction: any) => {
+      console.log('handlign delete action');
+      setDeleteModal({
+        isOpen: true,
+        itemId: item.id,
+        itemName: deleteAction.itemName || 'item',
+      });
+    };
+
     return (
       <div className="flex flex-row gap-4">
         {actions.map((action, index) => {
@@ -1293,12 +1406,47 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
                   </Button>
                 </Link>
               );
+            case 'delete':
+              return (
+                <button
+                  key={index}
+                  className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                  onClick={() => handleDeleteClick(action)}
+                >
+                  {action.label}
+                </button>
+              );
             default:
               return null;
           }
         })}
       </div>
     );
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      console.log('cofirmation called');
+  
+      console.log(deleteModal.itemId)
+          //@ts-ignore
+      deleteItemMutation.mutate(deleteModal.itemId);
+
+      // Call the stored onSuccess callback if provided
+
+      // Optionally refresh the data
+      // You might want to call a function to refetch your data here
+      // refetchData();
+
+      setDeleteModal({
+        isOpen: false,
+        itemId: null,
+        itemName: '',
+      });
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      // You might want to show an error message to the user
+    }
   };
 
   if (!backenddata || !dashboardConfig || !data) {
@@ -1311,6 +1459,18 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
         isFilterOpen ? 'max-h-screen ' : ''
       }`}
     >
+      <DeleteConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={() =>
+          setDeleteModal({
+            isOpen: false,
+            itemId: null,
+            itemName: '',
+          })
+        }
+        onConfirm={handleDeleteConfirm}
+        itemName={deleteModal.itemName}
+      />
       {/* Header */}
       <div className="bg-background border-b border-border sticky top-0 z-20 pr-5">
         <div className="mx-auto px-6 py-[1.2rem]">

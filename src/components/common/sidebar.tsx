@@ -1,10 +1,7 @@
 'use client';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useState } from 'react';
-import {
-  FaAngleRight,
-  FaChevronLeft
-} from 'react-icons/fa6';
+import { FaAngleRight, FaChevronLeft } from 'react-icons/fa6';
 // import {
 //   House01Stroke,
 //   ChevronRight01Stroke,
@@ -20,10 +17,11 @@ import {
 import {
   Folder03Icon,
   Home05Icon,
+  Legal01Icon,
   News01Icon,
   Settings01Icon,
   Tv01Icon,
-  UserGroup03Icon
+  UserGroup03Icon,
 } from '@hugeicons/core-free-icons';
 import Link from 'next/link';
 
@@ -78,7 +76,6 @@ const Sidebar = () => {
               endpoint: '',
             },
             { label: 'News', link: '/admin/dashboard/articles', endpoint: '' },
-
           ],
         },
         {
@@ -131,6 +128,24 @@ const Sidebar = () => {
           link: '/admin/dashboard/users',
           endpoint: '',
           type: 'link',
+        },
+        {
+          label: 'Policies and User Management',
+          icon: Legal01Icon,
+          type: 'submenu',
+          id: 'policy-and-user-mgmt',
+          submenu: [
+            {
+              label: 'Policies',
+              link: '/admin/dashboard/policy',
+              endpoint: '',
+            },
+            {
+              label: 'Policy Group',
+              link: '/admin/dashboard/policy-group',
+              endpoint: '',
+            },
+          ],
         },
         {
           label: 'Media Manager',
@@ -286,16 +301,22 @@ const Sidebar = () => {
             }`}
           >
             <img src="/atv.svg" alt="logo" className="h-10" />
-            {<div className={`flex flex-col ${
-                isCollapsed
-                  ? 'opacity-0  pointer-events-none duration-0 absolute'
-                  : 'opacity-100  delay-700 duration-700 pointer-events-auto'
-              }`}>
-              <span className="text-lg font-semibold text-foreground underline underline-offset-4">ATV Platform</span>
-              <span className="text-sm text-gray-600 line-clamp-1">
-                Content Management System
-              </span>
-            </div>}
+            {
+              <div
+                className={`flex flex-col ${
+                  isCollapsed
+                    ? 'opacity-0  pointer-events-none duration-0 absolute'
+                    : 'opacity-100  delay-700 duration-700 pointer-events-auto'
+                }`}
+              >
+                <span className="text-lg font-semibold text-foreground underline underline-offset-4">
+                  ATV Platform
+                </span>
+                <span className="text-sm text-gray-600 line-clamp-1">
+                  Content Management System
+                </span>
+              </div>
+            }
           </Link>
         </div>
 
@@ -307,16 +328,20 @@ const Sidebar = () => {
             }`}
           >
             <img src="/atv.svg" alt="logo" className="h-10" />
-            {<div className={`flex flex-col ${
-                isCollapsed
-                  ? 'opacity-0  pointer-events-none duration-0 absolute'
-                  : 'opacity-100  delay-700 duration-700 pointer-events-auto'
-              }`}>
-              <span className="text-md text-foreground">Avatar</span>
-              <span className="text-sm text-gray-600 line-clamp-1">
-                Administrator
-              </span>
-            </div>}
+            {
+              <div
+                className={`flex flex-col ${
+                  isCollapsed
+                    ? 'opacity-0  pointer-events-none duration-0 absolute'
+                    : 'opacity-100  delay-700 duration-700 pointer-events-auto'
+                }`}
+              >
+                <span className="text-md text-foreground">Avatar</span>
+                <span className="text-sm text-gray-600 line-clamp-1">
+                  Administrator
+                </span>
+              </div>
+            }
           </div>
         </div>
 

@@ -47,7 +47,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react';
 import { SentIcon } from '@hugeicons/core-free-icons';
 import { EnhancedFileUploader } from '@/components/filemanager/file-picker-modal';
-import { useDeepCompareMemo } from '@/hooks/deepCompareMemo';
+import { useDeepCompareEffect, useDeepCompareMemo } from '@/hooks/deepCompareMemo';
 
 interface NestedFieldConfig {
   key: string;
@@ -93,6 +93,7 @@ interface FormFieldWithSync {
   sync?: SyncConfig;
   // ... other existing properties
 }
+//working
 
 const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
   const [visibleFields, setVisibleFields] = React.useState<Set<string>>(
@@ -104,6 +105,12 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
   const [fieldOptions, setFieldOptions] = React.useState<Map<string, any[]>>(
     new Map()
   );
+  const [fieldApiConfig, setFieldApiConfig] = React.useState<
+    Map<
+      string,
+      { dataRoute: string; dataToShow: string[]; populatedKey: string }
+    >
+  >(new Map());
 
   // Helper function to extract value from form field
   const extractValue = (rawValue: any) => {
@@ -214,6 +221,10 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
     const newVisibleFields = new Set<string>();
     const newDynamicFields = new Map<string, FormFieldWithSync>();
     const newFieldOptions = new Map<string, any[]>();
+    const newFieldApiConfig = new Map<
+      string,
+      { dataRoute: string; dataToShow: string[]; populatedKey: string }
+    >();
 
     // Initialize all fields as visible by default (fields without sync or dependentOn)
     fieldMap.forEach((field, path) => {
@@ -289,6 +300,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                 case 'value_update':
                   newVisibleFields.add(fieldPath);
                   newVisibleFields.add(field.key);
+
                   if (valueMap.options) {
                     newFieldOptions.set(fieldPath, valueMap.options);
                     newFieldOptions.set(field.key, valueMap.options);
@@ -296,6 +308,41 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                       `🎛️ Setting options for ${fieldPath}:`,
                       valueMap.options
                     );
+                  } else if (valueMap.updateField) {
+                    const updateField = valueMap.updateField;
+
+                    // Handle API configuration
+                    if (updateField.dataRoute && updateField.dataToShow) {
+                      const apiConfig = {
+                        dataRoute: updateField.dataRoute,
+                        dataToShow: updateField.dataToShow,
+                        populatedKey: updateField.populatedKey || field.key,
+                      };
+
+                      // Store API config for the current field (the one being updated)
+                      newFieldApiConfig.set(fieldPath, apiConfig);
+                      newFieldApiConfig.set(field.key, apiConfig);
+                      console.log(
+                        `🌐 Setting API config for dependent field ${fieldPath}:`,
+                        apiConfig
+                      );
+                    }
+
+                    // Handle static values from updateField
+                    if (updateField.values) {
+                      const staticOptions = updateField.values.map(
+                        (option: any) => ({
+                          value: option.value || option.Value,
+                          label: option.label || option.Label,
+                        })
+                      );
+                      newFieldOptions.set(fieldPath, staticOptions);
+                      newFieldOptions.set(field.key, staticOptions);
+                      console.log(
+                        `🎛️ Setting updateField static options for ${fieldPath}:`,
+                        staticOptions
+                      );
+                    }
                   }
                   break;
 
@@ -304,6 +351,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                   if (valueMap.generateField) {
                     const dynamicField = {
                       ...valueMap.generateField,
+                      key: field.key
                     };
 
                     // Get the parent context from the dependent field path
@@ -324,6 +372,8 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                     const baseDynamicFieldPath = baseParentContext
                       ? `${baseParentContext}.${dynamicField.key}`
                       : dynamicField.key;
+
+                    dynamicField.key = baseDynamicFieldPath;
                     newDynamicFields.set(dynamicFieldPath, dynamicField);
                     newDynamicFields.set(dynamicField.key, dynamicField);
                     newDynamicFields.set(baseDynamicFieldPath, dynamicField);
@@ -373,11 +423,13 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
               if (sync.dependencyType === 'value_update') {
                 newVisibleFields.add(fieldPath);
                 newVisibleFields.add(field.key);
-                // Clear options when no dependent value
+                // Clear options and API config when no dependent value
                 newFieldOptions.delete(fieldPath);
                 newFieldOptions.delete(field.key);
+                newFieldApiConfig.delete(fieldPath);
+                newFieldApiConfig.delete(field.key);
                 console.log(
-                  `🧹 Cleared options for ${fieldPath} (no dependent value)`
+                  `🧹 Cleared options and API config for ${fieldPath} (no dependent value)`
                 );
               } else if (sync.dependencyType === 'dynamicFieldGen') {
                 // DON'T automatically remove dynamic fields when no dependent value
@@ -473,6 +525,41 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                       `🎛️ Setting options for controlled field ${followedFieldPath}:`,
                       valueMap.options
                     );
+                  } else if (valueMap.updateField) {
+                    const updateField = valueMap.updateField;
+
+                    // Handle API configuration for followed fields
+                    if (updateField.dataRoute && updateField.dataToShow) {
+                      const apiConfig = {
+                        dataRoute: updateField.dataRoute,
+                        dataToShow: updateField.dataToShow,
+                        populatedKey: updateField.populatedKey || followedKey,
+                      };
+
+                      // Store API config for the followed field
+                      newFieldApiConfig.set(followedFieldPath, apiConfig);
+                      newFieldApiConfig.set(followedKey, apiConfig);
+                      console.log(
+                        `🌐 Setting API config for followed field ${followedFieldPath}:`,
+                        apiConfig
+                      );
+                    }
+
+                    // Handle static values from updateField for followed fields
+                    if (updateField.values) {
+                      const staticOptions = updateField.values.map(
+                        (option: any) => ({
+                          value: option.value || option.Value,
+                          label: option.label || option.Label,
+                        })
+                      );
+                      newFieldOptions.set(followedFieldPath, staticOptions);
+                      newFieldOptions.set(followedKey, staticOptions);
+                      console.log(
+                        `🎛️ Setting updateField static options for followed field ${followedFieldPath}:`,
+                        staticOptions
+                      );
+                    }
                   }
                 });
                 break;
@@ -492,7 +579,6 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                     const dynamicFieldPath = parentContext
                       ? `${parentContext}.${dynamicField.key}`
                       : dynamicField.key;
-
                     // Also add the base path without array indices
                     const baseParentContext = parentContext.replace(
                       /\[\d+\]/g,
@@ -501,7 +587,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                     const baseDynamicFieldPath = baseParentContext
                       ? `${baseParentContext}.${dynamicField.key}`
                       : dynamicField.key;
-
+                    dynamicField.key=dynamicFieldPath
                     newDynamicFields.set(dynamicFieldPath, dynamicField);
                     newDynamicFields.set(dynamicField.key, dynamicField);
                     newDynamicFields.set(baseDynamicFieldPath, dynamicField);
@@ -560,10 +646,13 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
 
                 newVisibleFields.add(followedFieldPath);
                 newVisibleFields.add(followedKey);
+                // Clear both options and API config
                 newFieldOptions.delete(followedFieldPath);
                 newFieldOptions.delete(followedKey);
+                newFieldApiConfig.delete(followedFieldPath);
+                newFieldApiConfig.delete(followedKey);
                 console.log(
-                  `🧹 Cleared options for controlled field ${followedFieldPath} (no parent value)`
+                  `🧹 Cleared options and API config for controlled field ${followedFieldPath} (no parent value)`
                 );
               });
             } else if (sync.dependencyType === 'dynamicFieldGen') {
@@ -616,11 +705,13 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
     console.log('👁️ Visible fields:', Array.from(newVisibleFields));
     console.log('🎭 Dynamic fields:', Array.from(newDynamicFields.keys()));
     console.log('🎛️ Field options:', Array.from(newFieldOptions.keys()));
+    console.log('🌐 Field API configs:', Array.from(newFieldApiConfig.keys()));
 
     return {
       visibleFields: newVisibleFields,
       dynamicFields: newDynamicFields,
       fieldOptions: newFieldOptions,
+      fieldApiConfig: newFieldApiConfig,
     };
   }, [fields, formValues]);
 
@@ -629,12 +720,14 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
     setVisibleFields(processedData.visibleFields);
     setDynamicFields(processedData.dynamicFields);
     setFieldOptions(processedData.fieldOptions);
+    setFieldApiConfig(processedData.fieldApiConfig);
   }, [processedData]);
 
   return {
     visibleFields: processedData.visibleFields,
     dynamicFields: processedData.dynamicFields,
     fieldOptions: processedData.fieldOptions,
+    fieldApiConfig: processedData.fieldApiConfig,
     isFieldVisible: (fieldKey: string) => {
       // Check both full key and short key variants
       const variants = getFieldKeyVariants(fieldKey);
@@ -663,6 +756,20 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
         }
       }
       return null;
+    },
+    getFieldApiConfig: (fieldKey: string) => {
+      const variants = getFieldKeyVariants(fieldKey);
+      for (const variant of variants) {
+        const apiConfig = processedData.fieldApiConfig.get(variant);
+        if (apiConfig) {
+          return apiConfig;
+        }
+      }
+      return null;
+    },
+    hasApiConfig: (fieldKey: string) => {
+      //@ts-ignore
+      return !!this.getFieldApiConfig(fieldKey);
     },
   };
 };
@@ -1004,7 +1111,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   );
   const dataFilledRef = React.useRef(false);
 
-    React.useEffect(() => {
+  React.useEffect(() => {
     // Update stable dynamic fields in a separate effect to avoid render-time changes
     setStableDynamicFields(new Map(dynamicFields));
   }, [dynamicFields]);
@@ -1093,7 +1200,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     }
   }, [viewData, form, formDataSupplied]);
 
-    const multiSelectFields = React.useMemo(() => {
+  const multiSelectFields = React.useMemo(() => {
     const collectMultiSelectFields = (fields: any) => {
       const result: any = [];
       if (!fields || !Array.isArray(fields)) return result;
@@ -1102,7 +1209,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         // Check current field
         if (
           (field.type === 'multiselect' || field.type === 'singleselect') &&
-          (field.dataRoute || (field.sync && field.sync.dynamicAPI)) &&
+          (field.dataRoute ||
+            (field.sync && field.sync.dynamicAPI) ||
+            syncProcessor.getFieldApiConfig(field.key)) && // Add API config check
           field.dataToShow
         ) {
           result.push(field);
@@ -1124,15 +1233,24 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     // Collect dynamic fields that are multiselect/singleselect using stable state
     const dynamicMultiSelectFields: any[] = [];
     stableDynamicFields.forEach((field, key) => {
+      const apiConfig = syncProcessor.getFieldApiConfig(key);
       if (
         (field.type === 'multiselect' || field.type === 'singleselect') &&
-        (field.dataRoute || (field.sync && field.sync.dynamicAPI)) &&
-        field.dataToShow &&
-        visibleFields.has(key) // Use direct check instead of function call
+        (field.dataRoute ||
+          (field.sync && field.sync.dynamicAPI) ||
+          apiConfig) && // Include fields with API config
+        (field.dataToShow || apiConfig?.dataToShow) &&
+        visibleFields.has(key)
       ) {
         dynamicMultiSelectFields.push({
           ...field,
-          key: key, // Ensure the key is set correctly
+          key: key,
+          // Override with API config if available
+          ...(apiConfig && {
+            dataRoute: apiConfig.dataRoute,
+            dataToShow: apiConfig.dataToShow,
+            populatedKey: apiConfig.populatedKey,
+          }),
         });
       }
     });
@@ -1140,14 +1258,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     console.log('🔄 MultiSelect fields updated:');
     console.log('📋 Static fields:', staticFields.length);
     console.log('✨ Dynamic fields:', dynamicMultiSelectFields.length);
-    console.log(
-      '🎯 Total fields:',
-      [...staticFields, ...dynamicMultiSelectFields].length
-    );
 
     return [...staticFields, ...dynamicMultiSelectFields];
-  }, [viewData, stableDynamicFields, visibleFields]);
-
+  }, [viewData, stableDynamicFields, visibleFields, syncProcessor]);
 
   React.useEffect(() => {
     if (viewData) {
@@ -1201,12 +1314,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       setSingleSelectStaticOptions(staticOptions);
     }
   }, [viewData]);
-
-
-
-
-
-
 
   //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
   const transformQueryData = React.useCallback((data, dataToShow) => {
@@ -1302,35 +1409,35 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     [multiSelectFields]
   );
 
-const handleDataUpdate = React.useCallback(
-  (key: any, transformedData: any) => {
-    console.log('🔄 Data update triggered for:', key);
-    setMultiSelectData((prev) => {
-      const newData = {
-        ...prev,
-        [key]: transformedData,
-      };
+  const handleDataUpdate = React.useCallback(
+    (key: any, transformedData: any) => {
+      console.log('🔄 Data update triggered for:', key);
+      setMultiSelectData((prev) => {
+        const newData = {
+          ...prev,
+          [key]: transformedData,
+        };
 
-      // Clean up data for fields that are no longer visible
-      const currentFieldKeys = multiSelectFields.map(f => f.key);
-      Object.keys(newData).forEach(dataKey => {
-        if (!currentFieldKeys.includes(dataKey)) {
-          console.log('🧹 Cleaning up data for removed field:', dataKey);
-          //@ts-ignore
-          delete newData[dataKey];
+        // Clean up data for fields that are no longer visible
+        const currentFieldKeys = multiSelectFields.map((f) => f.key);
+        Object.keys(newData).forEach((dataKey) => {
+          if (!currentFieldKeys.includes(dataKey)) {
+            console.log('🧹 Cleaning up data for removed field:', dataKey);
+            //@ts-ignore
+            delete newData[dataKey];
+          }
+        });
+
+        // If all current fields have data, mark as filled
+        if (isDataComplete(newData)) {
+          dataFilledRef.current = true;
         }
+
+        return newData;
       });
-
-      // If all current fields have data, mark as filled
-      if (isDataComplete(newData)) {
-        dataFilledRef.current = true;
-      }
-
-      return newData;
-    });
-  },
-  [isDataComplete, multiSelectFields]
-);
+    },
+    [isDataComplete, multiSelectFields]
+  );
 
   const processLinkInsideQueriesConfig = (
     dataRoute: string,
@@ -1350,163 +1457,343 @@ const handleDataUpdate = React.useCallback(
     return url.pathname + url.search;
   };
 
- const queriesConfig = useDeepCompareMemo(() => {
-  if (!viewData || !multiSelectFields.length) return [];
+  const handleDataUpdateWithValidation = React.useCallback(
+    (key: string, transformedData: any[], originalFieldKey: string) => {
+      console.log(
+        '🔄 Data update with validation for:',
+        key,
+        'original field:',
+        originalFieldKey
+      );
 
-  console.log('🔄 Rebuilding queries config for fields:', multiSelectFields.map(f => f.key));
+      // Validate the transformed data
+      if (!Array.isArray(transformedData) || transformedData.length === 0) {
+        console.warn(
+          `⚠️ Empty or invalid data for field ${key}:`,
+          transformedData
+        );
+      }
 
-  return multiSelectFields.map(
-    ({
-      key,
-      dataRoute,
-      dataToShow,
-      sync,
-    }: {
-      key: any;
-      dataRoute: any;
-      dataToShow: any;
-      sync: any;
-    }) => {
-      // Check if field has dynamic API configuration
-      if (sync && sync.dynamicAPI && sync.dependentOn) {
-        //@ts-ignore
-        const dependentFieldValue = formValues[sync.dependentOn];
+      setMultiSelectData((prev) => {
+        const newData = {
+          ...prev,
+          [key]: transformedData,
+        };
 
-        // If dependent field has no value, disable query
-        if (!dependentFieldValue) {
-          return {
-            queryKey: [`${slug}-${key}-data-disabled`],
-            queryFn: () => Promise.resolve({ mainData: [] }),
-            enabled: false,
-          };
+        // FIX: Also store data under the original field key if different
+        if (originalFieldKey !== key) {
+          //@ts-ignore
+          newData[originalFieldKey] = transformedData;
         }
 
-        // Get dynamic API config based on dependent field value
-        const dependentValue =
-          typeof dependentFieldValue === 'object' &&
-          dependentFieldValue?.value
-            ? dependentFieldValue.value
-            : dependentFieldValue;
+        // Clean up data for fields that are no longer visible
+        const currentFieldKeys = multiSelectFields.map((f) => f.key);
+        const currentPopulatedKeys = multiSelectFields.map((f) => {
+          const apiConfig = syncProcessor.getFieldApiConfig(f.key);
+          return apiConfig?.populatedKey || f.populatedKey || f.key;
+        });
 
-        const dynamicConfig = sync.dynamicAPI[dependentValue];
+        const allValidKeys = [...currentFieldKeys, ...currentPopulatedKeys];
 
-        if (!dynamicConfig) {
-          return {
-            queryKey: [`${slug}-${key}-data-no-config`],
-            queryFn: () => Promise.resolve({ mainData: [] }),
-            enabled: false,
-          };
-        }
+        Object.keys(newData).forEach((dataKey) => {
+          if (!allValidKeys.includes(dataKey)) {
+            console.log('🧹 Cleaning up data for removed field:', dataKey);
+            //@ts-ignore
+            delete newData[dataKey];
+          }
+        });
 
-        // Build query with dynamic configuration
-        return {
-          queryKey: [
+        // Log the update for debugging
+        console.log('📊 MultiSelect data updated:', {
+          key,
+          dataLength: transformedData.length,
+          totalKeys: Object.keys(newData).length,
+        });
+
+        return newData;
+      });
+    },
+    [multiSelectFields, syncProcessor]
+  );
+
+  const queriesConfig = useDeepCompareMemo(() => {
+    if (!viewData || !multiSelectFields.length) return [];
+
+    console.log(
+      '🔄 Rebuilding queries config for fields:',
+      multiSelectFields.map((f) => f.key)
+    );
+
+    return multiSelectFields.map(
+      ({ key, dataRoute, dataToShow, sync, populatedKey }) => {
+        // Check for API config from sync processor
+        const apiConfig = syncProcessor.getFieldApiConfig(key);
+
+        // Use API config if available, otherwise fall back to field properties
+        const finalDataRoute = apiConfig?.dataRoute || dataRoute;
+        const finalDataToShow = apiConfig?.dataToShow || dataToShow;
+        const finalPopulatedKey =
+          apiConfig?.populatedKey || populatedKey || key;
+
+        // Handle dynamic API configuration
+        if (sync && sync.dynamicAPI && sync.dependentOn) {
+          //@ts-ignore
+          const dependentFieldValue = formValues[sync.dependentOn];
+
+          if (!dependentFieldValue) {
+            return {
+              queryKey: [`${slug}-${key}-data-disabled`],
+              queryFn: () => Promise.resolve({ mainData: [] }),
+              enabled: false,
+            };
+          }
+
+          const dependentValue =
+            typeof dependentFieldValue === 'object' &&
+            dependentFieldValue?.value
+              ? dependentFieldValue.value
+              : dependentFieldValue;
+
+          const dynamicConfig = sync.dynamicAPI[dependentValue];
+
+          if (!dynamicConfig) {
+            return {
+              queryKey: [`${slug}-${key}-data-no-config`],
+              queryFn: () => Promise.resolve({ mainData: [] }),
+              enabled: false,
+            };
+          }
+
+          // FIX: More stable query key that includes all relevant dependencies
+          const stableQueryKey = [
             `${slug}-${key}-data`,
             dependentValue,
             JSON.stringify(dynamicConfig.filterParams || {}),
-            'dynamic-field', // Add identifier for dynamic fields
-          ],
-          queryFn: () => {
-            console.log(
-              `🌐 Fetching dynamic data for ${key} from:`,
-              dynamicConfig.dataRoute
-            );
-            const url = processLinkInsideQueriesConfig(
-              dynamicConfig.dataRoute,
-              dynamicConfig.filterParams
-            );
-            return getDataFromRoute(url);
+            'dynamic-field',
+            // Add API config to query key to invalidate when it changes
+            apiConfig ? JSON.stringify(apiConfig) : 'no-api-config',
+          ];
+
+          return {
+            queryKey: stableQueryKey,
+            queryFn: async () => {
+              console.log(
+                `🌐 Fetching dynamic data for ${key} from:`,
+                dynamicConfig.dataRoute
+              );
+              const url = processLinkInsideQueriesConfig(
+                dynamicConfig.dataRoute,
+                dynamicConfig.filterParams
+              );
+              return getDataFromRoute(url);
+            },
+            enabled: !!(
+              viewData &&
+              dynamicConfig.dataRoute &&
+              dependentFieldValue &&
+              visibleFields.has(key)
+            ),
+            staleTime: 5 * 60 * 1000,
+            // FIX: Add retry logic and better error handling
+            retry: 3,
+            retryDelay: (attemptIndex: any) =>
+              Math.min(1000 * 2 ** attemptIndex, 30000),
+            onSuccess: (data: any) => {
+              if (!data) return;
+              console.log(
+                `✅ Dynamic data loaded for ${key}:`,
+                data.mainData?.length || 0,
+                'items'
+              );
+              const transformedData = transformQueryData(
+                data.mainData,
+                dynamicConfig.dataToShow || finalDataToShow
+              );
+              // FIX: Use a more robust data update mechanism
+              handleDataUpdateWithValidation(
+                finalPopulatedKey,
+                transformedData,
+                key
+              );
+            },
+            onError: (error: any) => {
+              console.error(
+                `❌ Failed to fetch dynamic data for ${key}:`,
+                error
+              );
+            },
+          };
+        }
+
+        // Handle API config fields (from sync processor)
+        if (apiConfig && finalDataRoute) {
+          // FIX: More stable query key for API config fields
+          const apiConfigQueryKey = [
+            `${slug}-${key}-data-api-config`,
+            JSON.stringify(apiConfig), // Include full API config in key
+            visibleFields.has(key) ? 'visible' : 'hidden',
+          ];
+
+          return {
+            queryKey: apiConfigQueryKey,
+            queryFn: async () => {
+              console.log('🌐 Fetching API config data from:', finalDataRoute);
+              return getDataFromRoute(processLink(finalDataRoute, null));
+            },
+            enabled: !!(viewData && finalDataRoute && visibleFields.has(key)),
+            staleTime: 5 * 60 * 1000,
+            retry: 3,
+            retryDelay: (attemptIndex: any) =>
+              Math.min(1000 * 2 ** attemptIndex, 30000),
+            onSuccess: (data: any) => {
+              if (!data) return;
+              console.log(
+                `✅ API config data loaded for ${key}:`,
+                data.mainData?.length || 0,
+                'items'
+              );
+              const transformedData = transformQueryData(
+                data.mainData,
+                finalDataToShow
+              );
+              handleDataUpdateWithValidation(
+                finalPopulatedKey,
+                transformedData,
+                key
+              );
+            },
+            onError: (error: any) => {
+              console.error(
+                `❌ Failed to fetch API config data for ${key}:`,
+                error
+              );
+            },
+          };
+        }
+
+        // Fallback to static dataRoute (existing logic)
+        return {
+          queryKey: [`${slug}-${key}-data`],
+          queryFn: async () => {
+            console.log('🌐 Fetching static data from:', finalDataRoute);
+            return getDataFromRoute(processLink(finalDataRoute, null));
           },
-          enabled:
-            !!viewData && 
-            !!dynamicConfig.dataRoute && 
-            !!dependentFieldValue &&
-            visibleFields.has(key), // Use direct check instead of function call
-          staleTime: 5 * 60 * 1000, // 5 minutes cache
+          enabled: !!(viewData && finalDataRoute && visibleFields.has(key)),
+          staleTime: Infinity,
           onSuccess: (data: any) => {
             if (!data) return;
-            console.log(`✅ Dynamic data loaded for ${key}:`, data.mainData?.length || 0, 'items');
+            console.log(
+              `✅ Static data loaded for ${key}:`,
+              data.mainData?.length || 0,
+              'items'
+            );
             const transformedData = transformQueryData(
               data.mainData,
-              dynamicConfig.dataToShow || dataToShow
+              finalDataToShow
             );
-            handleDataUpdate(key, transformedData);
+            handleDataUpdateWithValidation(
+              finalPopulatedKey,
+              transformedData,
+              key
+            );
+          },
+          onError: (error: any) => {
+            console.error(`❌ Failed to fetch static data for ${key}:`, error);
           },
         };
       }
-
-      // Fallback to static dataRoute (existing logic)
-      return {
-        queryKey: [`${slug}-${key}-data`],
-        queryFn: () => {
-          console.log('🌐 Fetching static data from:', dataRoute);
-          return getDataFromRoute(processLink(dataRoute, null));
-        },
-        enabled: !!viewData && !!dataRoute && visibleFields.has(key),
-        staleTime: Infinity,
-        onSuccess: (data: any) => {
-          if (!data) return;
-          console.log(`✅ Static data loaded for ${key}:`, data.mainData?.length || 0, 'items');
-          const transformedData = transformQueryData(
-            data.mainData,
-            dataToShow
-          );
-          handleDataUpdate(key, transformedData);
-        },
-      };
-    }
-  );
-}, [
-  multiSelectFields,
-  slug,
-  viewData,
-  formValues,
-  transformQueryData,
-  handleDataUpdate,
-  visibleFields, // Use direct state instead of function
-  stableDynamicFields, // Use stable state instead of direct dynamicFields
-]);
+    );
+  }, [
+    multiSelectFields,
+    slug,
+    viewData,
+    formValues,
+    transformQueryData,
+    visibleFields,
+    stableDynamicFields,
+    syncProcessor,
+    // FIX: Add fieldApiConfig as dependency to ensure queries update when API config changes
+    JSON.stringify(Array.from(syncProcessor.fieldApiConfig.entries())),
+  ]);
 
   const multiSelectQueries = useQueries({ queries: queriesConfig });
   // Only update when not already filled
-  React.useEffect(() => {
-    console.log('entered here');
-    if (dataFilledRef.current) {
-      console.log('Data already filled, skipping update');
-      return;
-    }
-
-    const allQueriesSuccessful = multiSelectQueries.every(
-      (query) => query.isSuccess && query.data
+  useDeepCompareEffect(() => {
+    // FIX: Process query results even if dataFilledRef is true, to handle dynamic updates
+    const allQueriesWithData = multiSelectQueries.filter(
+      (query) => query.isSuccess && query.data && query.data.mainData
     );
 
-    if (allQueriesSuccessful && viewData) {
-      const newData = multiSelectFields.reduce(
-        (acc: any, field: any, index: any) => {
-          //@ts-ignore
-          const queryData = multiSelectQueries[index].data.mainData;
-          if (queryData) {
-            acc[field.key] = transformQueryData(queryData, field.dataToShow);
-          }
-          return acc;
-        },
-        {}
+    if (allQueriesWithData.length > 0 && viewData) {
+      console.log(
+        `📊 Processing ${allQueriesWithData.length} successful queries`
       );
 
-      if (isDataComplete(newData)) {
-        dataFilledRef.current = true;
-        setMultiSelectData(newData);
-        console.log('Data filled completely:', newData);
-      }
+      allQueriesWithData.forEach((query, index) => {
+        const field = multiSelectFields.find((f, i) => {
+          // Find the corresponding field for this query
+          const queryIndex = multiSelectQueries.indexOf(query);
+          return i === queryIndex;
+        });
+
+        if (field && query.data.mainData) {
+          const apiConfig = syncProcessor.getFieldApiConfig(field.key);
+          const finalPopulatedKey =
+            apiConfig?.populatedKey || field.populatedKey || field.key;
+          const finalDataToShow = apiConfig?.dataToShow || field.dataToShow;
+
+          const transformedData = transformQueryData(
+            query.data.mainData,
+            finalDataToShow
+          );
+
+          // FIX: Always update data, don't skip based on dataFilledRef
+          handleDataUpdateWithValidation(
+            finalPopulatedKey,
+            transformedData,
+            field.key
+          );
+        }
+      });
+    }
+
+    // FIX: Handle query errors
+    const failedQueries = multiSelectQueries.filter((query) => query.isError);
+    if (failedQueries.length > 0) {
+      console.error(
+        '❌ Failed queries:',
+        failedQueries.map((q) => q.error)
+      );
     }
   }, [
     multiSelectQueries,
     multiSelectFields,
     viewData,
     transformQueryData,
-    isDataComplete,
-    isFieldVisible,
-    dynamicFields,
+    syncProcessor,
+    handleDataUpdateWithValidation,
+  ]);
+
+  React.useEffect(() => {
+    // Invalidate queries when field API config changes
+    const apiConfigKeys = Array.from(syncProcessor.fieldApiConfig.keys());
+
+    if (apiConfigKeys.length > 0) {
+      console.log('🔄 API config changed, invalidating related queries');
+
+      apiConfigKeys.forEach((fieldKey) => {
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            return query.queryKey.some(
+              (key) => typeof key === 'string' && key.includes(fieldKey)
+            );
+          },
+        });
+      });
+    }
+  }, [
+    JSON.stringify(Array.from(syncProcessor.fieldApiConfig.entries())),
+    queryClient,
   ]);
 
   const transformFormDataToNested = (
@@ -1605,6 +1892,7 @@ const handleDataUpdate = React.useCallback(
   //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
   const onSubmit = async (data) => {
     try {
+      const data = form.getValues();
       setIsSubmitting(true);
 
       let processedData = { ...data };
@@ -1634,11 +1922,12 @@ const handleDataUpdate = React.useCallback(
         }
 
         if (fieldType === 'scorecard') {
+             //@ts-ignore
           delete processedData[key];
         }
 
         if (fieldType === 'jsonArray' && Array.isArray(value)) {
-          // Process any file uploads within the array items
+             //@ts-ignore
           processedData[key] = await Promise.all(
             value.map(async (item) => {
               const processedItem = { ...item };
@@ -1675,7 +1964,7 @@ const handleDataUpdate = React.useCallback(
               return item; // It's already a URL string
             })
           );
-
+          //@ts-ignore
           processedData[key] = uploadedUrls;
         }
         // Handle multiselect fields
@@ -1684,10 +1973,12 @@ const handleDataUpdate = React.useCallback(
           Array.isArray(value) &&
           value.length > 0 &&
           (value[0]?.value || value[0]?.id)
-        ) {
+        ) {   //@ts-ignore
           if (processedData[key] && processedData[key].length > 0) {
+               //@ts-ignore
             processedData[key] = value.map((item) => item.value || item.id);
           } else {
+               //@ts-ignore
             processedData[key] = null;
           }
           // Extract just the value from each selected option
@@ -1698,19 +1989,24 @@ const handleDataUpdate = React.useCallback(
           typeof value === 'object' &&
           'id' in value
         ) {
+             //@ts-ignore
           processedData[key] = value.id;
         }
         if (fieldType === 'singleselect') {
           if (value && typeof value === 'object' && 'value' in value) {
+               //@ts-ignore
             processedData[key] = value.value;
           } else if (value) {
+               //@ts-ignore
             processedData[key] = value;
           } else {
+               //@ts-ignore
             processedData[key] = null;
           }
         }
 
         if (fieldType === 'switch') {
+             //@ts-ignore
           processedData[key] = value === 'Yes';
         }
 
@@ -1718,7 +2014,7 @@ const handleDataUpdate = React.useCallback(
           console.log('date magaman');
           console.log(value);
 
-          // Since value is already a Date object, just convert it to UTC ISO string
+             //@ts-ignore
           processedData[key] = new Date(value).toISOString(); // This gives you the UTC date in ISO 8601 format
         }
         if (
@@ -1727,6 +2023,7 @@ const handleDataUpdate = React.useCallback(
           typeof value === 'object' &&
           'value' in value
         ) {
+             //@ts-ignore
           processedData[key] = value.value;
         }
       }
@@ -1811,891 +2108,478 @@ const handleDataUpdate = React.useCallback(
       return options.filter((option) => fieldValueIds.includes(option.value));
     }, [options, fieldValues]); // Memoize based on actual inputs
   };
-  // const organizeFields = (formFields: any) => {
-  //   const tabs = {};
-  //   const ungroupedFields: any[] = [];
-  //   //@ts-ignore
-  //   formFields.forEach((field) => {
-  //     if (field.tabId) {
-  //       // Initialize tab if it doesn't exist
-  //       //@ts-ignore
-  //       if (!tabs[field.tabId]) {
-  //         //@ts-ignore
-  //         tabs[field.tabId] = {
-  //           id: field.tabId,
-  //           name: field.tabName || `${field.tabId}`,
-  //           sections: {},
-  //           ungroupedFields: [],
-  //         };
-  //       }
-
-  //       if (field.expandableSectionId) {
-  //         // Initialize section within tab if it doesn't exist
-  //         //@ts-ignore
-  //         if (!tabs[field.tabId].sections[field.expandableSectionId]) {
-  //           //@ts-ignore
-  //           tabs[field.tabId].sections[field.expandableSectionId] = {
-  //             id: field.expandableSectionId,
-  //             name:
-  //               field.expandableSectionName || `${field.expandableSectionId}`,
-  //             fields: [],
-  //           };
-  //         }
-  //         // Add field to section within tab
-  //         //@ts-ignore
-  //         tabs[field.tabId].sections[field.expandableSectionId].fields.push(
-  //           field
-  //         );
-  //       } else {
-  //         // Add field directly to tab (ungrouped within tab)
-  //         //@ts-ignore
-  //         tabs[field.tabId].ungroupedFields.push(field);
-  //       }
-  //     } else if (field.expandableSectionId) {
-  //       // Fields with section but no tab - treat as ungrouped at top level
-  //       // (or you could create a default tab for these)
-  //       ungroupedFields.push(field);
-  //     } else {
-  //       // Fields with neither tab nor section
-  //       ungroupedFields.push(field);
-  //     }
-  //   });
-  //   //@ts-ignore
-  //   return { tabs, ungroupedFields };
-  // };
-
-  // Original field rendering function (keeping all your existing logic)
-  // const renderFormField = React.useCallback(
-  //   (field: any) => {
-  //     console.log(`🎨 Rendering field: ${field.key}`);
-  //     if (
-  //       field.sync &&
-  //       !syncProcessor.isFieldVisible(field.key) &&
-  //       !syncProcessor.isFieldVisible(field.key.split('.').pop()!)
-  //     ) {
-  //       console.log(`❌ Field ${field.key} is not visible, skipping render`);
-  //       return null;
-  //     }
-
-  //     console.log(`✅ Field ${field.key} is visible, proceeding with render`);
-
-  //     // Get dynamic options - this is the key fix for your issue
-  //     const dynamicOptions =
-  //       syncProcessor.getFieldOptions(field.key) ||
-  //       syncProcessor.getFieldOptions(field.key.split('.').pop()!);
-  //     console.log(`🎛️ Dynamic options for ${field.key}:`, dynamicOptions);
-
-  //     // Get dynamic field configuration if it exists
-  //     let actualField =
-  //       syncProcessor.getDynamicField(field.key) ||
-  //       syncProcessor.getDynamicField(field.key.split('.').pop()!) ||
-  //       field;
-
-  //     const isFixedParent = isFixedParentField(actualField.key, fixedParents);
-  //     const parentData = getFixedParentData(actualField.key, fixedParents);
-  //     console.log(
-  //       `🔧 Field ${field.key} - Type: ${actualField.type}, Fixed: ${isFixedParent}`
-  //     );
-  //     console.log(JSON.stringify(parentData));
-  //     return (
-  //       <FormField
-  //         control={form.control}
-  //         key={actualField.key}
-  //         //@ts-ignore
-  //         name={actualField.key}
-  //         render={({ field: formField }) => (
-  //           <FormItem>
-  //             <FormLabel>
-  //               <BodyText variant="trimmed"> {actualField.label}</BodyText>
-  //               {actualField.required && (
-  //                 <span className="text-red-500 ml-1 text-xl font-bold">*</span>
-  //               )}
-  //             </FormLabel>
-  //             <FormControl className="">
-  //               <div className="min-w-full">
-  //                 {actualField.type === 'text' && (
-  //                   <Input
-  //                     className="border p-2 w-full"
-  //                     disabled={isFixedParent || actualField.disabled}
-  //                     {...formField}
-  //                   />
-  //                 )}
-  //                 {actualField.type === 'time' && (
-  //                   <Input
-  //                     type="time"
-  //                     className="border p-2 w-full"
-  //                     disabled={isFixedParent || actualField.disabled}
-  //                     {...formField}
-  //                   />
-  //                 )}
-  //                 {actualField.type === 'date' && (
-  //                   <Input
-  //                     type="date"
-  //                     className="border p-2 w-full"
-  //                     disabled={isFixedParent || actualField.disabled}
-  //                     {...formField}
-  //                   />
-  //                 )}
-  //                 {actualField.type === 'htmlfield' && (
-  //                   <div className="w-full -ml-2 mr-auto">
-  //                     <CustomJodit
-  //                       ref={editor}
-  //                       onChange={formField.onChange}
-  //                       value={formField.value}
-  //                       variable="blogPreview"
-  //                       editorStyles="min-width:100% !important;"
-  //                     />
-  //                   </div>
-  //                 )}
-  //                 {actualField.type === 'multiselect' &&
-  //                   React.useMemo(() => {
-  //                     // Use dynamic options if available, otherwise fall back to static options
-  //                     const fieldOptions =
-  //                       dynamicOptions ||
-  //                       (() => {
-  //                         //@ts-ignore
-  //                         return actualField.key
-  //                           ? //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-  //                             multiSelectData[actualField.key] ||
-  //                               //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-  //                               multiSelectData[
-  //                                 actualField.key.split('.').pop()!
-  //                               ] ||
-  //                               []
-  //                           : [];
-  //                       })();
-
-  //                     const fieldDefaultValues = (() => {
-  //                       //@ts-ignore
-  //                       const fieldValues = actualField.key
-  //                         ? //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-  //                           formReady[actualField.key]
-  //                         : [];
-
-  //                       // Format the values here before passing to MultiSelect
-  //                       const formatValue = (value: any) => {
-  //                         if (Array.isArray(value)) {
-  //                           // For multiselect - process array
-  //                           return value.map((item) =>
-  //                             typeof item === 'object' && item !== null
-  //                               ? item
-  //                               : { label: item, value: item }
-  //                           );
-  //                         } else if (value !== null && value !== undefined) {
-  //                           // For single select - process single value
-  //                           return typeof value === 'object' && value !== null
-  //                             ? [value]
-  //                             : [{ label: value, value: value }];
-  //                         }
-  //                         return [];
-  //                       };
-
-  //                       const formattedFieldValues = formatValue(fieldValues);
-
-  //                       if (
-  //                         !Array.isArray(formattedFieldValues) ||
-  //                         !Array.isArray(fieldOptions)
-  //                       )
-  //                         return [];
-
-  //                       //@ts-ignore
-  //                       let fieldValueIds = formattedFieldValues.map(
-  //                         //@ts-ignore
-  //                         (item) => item.id
-  //                       );
-  //                       if (!fieldValueIds[0]) {
-  //                         //@ts-ignore
-  //                         fieldValueIds = formattedFieldValues.map(
-  //                           //@ts-ignore
-  //                           (item) => item.value
-  //                         );
-  //                       }
-
-  //                       return fieldOptions.filter((option) =>
-  //                         fieldValueIds.includes(option.value)
-  //                       );
-  //                     })();
-
-  //                     return (
-  //                       <MultiSelect
-  //                         key={`${actualField.key}-${fieldOptions.length}`}
-  //                         options={fieldOptions}
-  //                         className="basic-multi-select"
-  //                         placeholder="Select "
-  //                         defaultValues={
-  //                           isFixedParent ? [parentData] : fieldDefaultValues
-  //                         }
-  //                         disabled={isFixedParent || actualField.disabled}
-  //                         onChange={formField.onChange}
-  //                       />
-  //                     );
-  //                   }, [
-  //                     //@ts-ignore
-  //                     multiSelectData[actualField.key],
-  //                     dynamicOptions, // Add dynamic options as dependency
-  //                     formField.value,
-  //                     formField.onChange,
-  //                     actualField.key,
-  //                     formReady,
-  //                   ])}
-  //                 {actualField.type === 'multiselectstatic' &&
-  //                   React.useMemo(() => {
-  //                     // Use dynamic options if available, otherwise fall back to static options
-  //                     const fieldOptions =
-  //                       dynamicOptions ||
-  //                       (() => {
-  //                         // Get static options from actualField.values
-  //                         if (
-  //                           actualField.values &&
-  //                           Array.isArray(actualField.values) &&
-  //                           actualField.values.length > 0
-  //                         ) {
-  //                           return actualField.values.map((option: any) => ({
-  //                             value: option.value || option.Value, // Handle both lowercase and uppercase
-  //                             label: option.label || option.Label,
-  //                           }));
-  //                         }
-  //                         return [];
-  //                       })();
-
-  //                     const fieldDefaultValues = (() => {
-  //                       //@ts-ignore
-  //                       const fieldValues = (() => {
-  //                         if (!actualField.key) return [];
-
-  //                         // Helper function to get nested value from object
-  //                         const getNestedValue = (obj: any, path: string) => {
-  //                           return path.split('.').reduce((current, key) => {
-  //                             return current && current[key] !== undefined
-  //                               ? current[key]
-  //                               : undefined;
-  //                           }, obj);
-  //                         };
-
-  //                         // Try to get the value using the nested path
-  //                         const nestedValue = getNestedValue(
-  //                           formReady,
-  //                           actualField.key
-  //                         );
-  //                         if (nestedValue !== undefined) {
-  //                           return nestedValue;
-  //                         }
-
-  //                         // Fallback: try direct key access
-  //                         //@ts-ignore
-  //                         const directValue = formReady[actualField.key];
-  //                         if (directValue !== undefined) {
-  //                           return directValue;
-  //                         }
-
-  //                         // Fallback: try the last part of the key
-  //                         const lastKey = actualField.key.split('.').pop();
-  //                         //@ts-ignore
-  //                         return formReady[lastKey!] || [];
-  //                       })();
-
-  //                       console.log(fieldValues);
-  //                       console.log(actualField.key);
-  //                       console.log('Here multiselectstatic fieldvalues');
-
-  //                       // Format the values here before processing
-  //                       const formatValue = (value: any) => {
-  //                         if (Array.isArray(value)) {
-  //                           // For multiselect - process array
-  //                           return value.map((item) =>
-  //                             typeof item === 'object' && item !== null
-  //                               ? item
-  //                               : { label: item, value: item }
-  //                           );
-  //                         } else if (value !== null && value !== undefined) {
-  //                           // For single select - process single value
-  //                           return typeof value === 'object' && value !== null
-  //                             ? [value]
-  //                             : [{ label: value, value: value }];
-  //                         }
-  //                         return [];
-  //                       };
-
-  //                       const formattedFieldValues = formatValue(fieldValues);
-
-  //                       if (
-  //                         !Array.isArray(formattedFieldValues) ||
-  //                         !Array.isArray(fieldOptions)
-  //                       ) {
-  //                         return [];
-  //                       }
-
-  //                       //@ts-ignore
-  //                       let fieldValueIds = formattedFieldValues.map(
-  //                         (item) => item.id
-  //                       );
-  //                       if (!fieldValueIds[0]) {
-  //                         //@ts-ignore
-  //                         fieldValueIds = formattedFieldValues.map(
-  //                           (item) => item.value
-  //                         );
-  //                       }
-
-  //                       return fieldOptions.filter((option) =>
-  //                         fieldValueIds.includes(option.value)
-  //                       );
-  //                     })();
-
-  //                     return (
-  //                       <MultiSelect
-  //                         key={`${actualField.key}-${fieldOptions.length}`}
-  //                         options={fieldOptions}
-  //                         className="basic-multi-select"
-  //                         placeholder="Select "
-  //                         defaultValues={
-  //                           isFixedParent ? [parentData] : fieldDefaultValues
-  //                         }
-  //                         disabled={isFixedParent || actualField.disabled}
-  //                         onChange={formField.onChange}
-  //                       />
-  //                     );
-  //                   }, [
-  //                     //@ts-ignore
-  //                     actualField.values, // Static options dependency
-  //                     dynamicOptions, // Add dynamic options as dependency
-  //                     formField.value,
-  //                     formField.onChange,
-  //                     actualField.key,
-  //                     formReady,
-  //                   ])}
-  //                 {actualField.type === 'singleselect' && (
-  //                   <Combobox
-  //                     key={actualField.key}
-  //                     options={
-  //                       // Use dynamic options if available, otherwise fall back to static options
-  //                       dynamicOptions ||
-  //                       (actualField.key
-  //                         ? //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-  //                           multiSelectData[actualField.key] ||
-  //                           //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-  //                           multiSelectData[
-  //                             actualField.key.split('.').pop()!
-  //                           ] ||
-  //                           []
-  //                         : [])
-  //                     }
-  //                     className="basic-single-select"
-  //                     placeholder="Select "
-  //                     disabled={isFixedParent || actualField.disabled}
-  //                     defaultValue={
-  //                       isFixedParent
-  //                         ? parentData
-  //                         : findMatchingOptionsForSingleSelect(
-  //                             dynamicOptions ||
-  //                               //@ts-ignore
-  //                               multiSelectData[actualField.key] ||
-  //                               [],
-  //                             formField.value || []
-  //                           )
-  //                     }
-  //                     onChange={(selected) => {
-  //                       formField.onChange(selected);
-  //                     }}
-  //                   />
-  //                 )}
-  //                 {actualField.type === 'singleselectstatic' && (
-  //                   <Combobox
-  //                     key={actualField.key}
-  //                     options={
-  //                       // Use dynamic options if available, otherwise fall back to static options
-  //                       dynamicOptions ||
-  //                       (actualField.key
-  //                         ? //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-  //                           singleSelectStaticOptions[actualField.key] ||
-  //                           //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-  //                           singleSelectStaticOptions[
-  //                             actualField.key.split('.').pop()!
-  //                           ] ||
-  //                           []
-  //                         : [])
-  //                     }
-  //                     className="basic-select"
-  //                     disabled={isFixedParent || actualField.disabled}
-  //                     defaultValue={
-  //                       formField.value
-  //                         ? { value: formField.value, label: formField.value }
-  //                         : null
-  //                     }
-  //                     onChange={(selected) => {
-  //                       formField.onChange(selected);
-  //                     }}
-  //                     placeholder="Select an option..."
-  //                   />
-  //                 )}
-  //                 {actualField.type === 'filegallery' && (
-  //                   // <div className="p-4" key={actualField.key}>
-  //                   //   <FileUploader
-  //                   //     multiple={true}
-  //                   //     files={getFilesForKey(actualField.key)}
-  //                   //     onFilesChange={(newFiles) => {
-  //                   //       //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-  //                   //       handleFileUpload(actualField.key, newFiles);
-  //                   //     }}
-  //                   //     buttonText="Upload Files"
-  //                   //     id={`file-gallery-upload-${actualField.key}`}
-  //                   //     accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.docx"
-  //                   //     label={actualField.label || 'Upload Files'}
-  //                   //   />
-  //                   // </div>
-  //                   <div className="p-4" key={actualField.key}>
-  //                     <EnhancedFileUploader
-  //                       multiple={true}
-  //                       onFilesChange={(files) => {
-  //                         // Your handleFileUpload function
-  //                         //@ts-ignore
-  //                         handleFileUpload(actualField.key, files);
-  //                       }}
-  //                       //@ts-ignore
-  //                       value={getFilesForKey(actualField.key)}
-  //                       buttonText="Select Files"
-  //                       id={`file-gallery-upload-${actualField.key}`}
-  //                     />
-  //                   </div>
-  //                 )}
-
-  //                 {actualField.type === 'jsonArray' && (
-  //                   <JsonFormField
-  //                     field={formField}
-  //                     label={actualField.label}
-  //                     schema={actualField.schema}
-  //                     required={actualField.required}
-  //                     disabled={actualField.disabled}
-  //                   />
-  //                 )}
-  //                 {actualField.type === 'file' && (
-  //                   <EnhancedFileUploader
-  //                     multiple={false}
-  //                     onFilesChange={(file) => {
-  //                       formField.onChange(file);
-  //                     }}
-  //                     value={formField.value}
-  //                     buttonText="Select File"
-  //                     id={`file-upload-${formField.name}`}
-  //                   />
-  //                 )}
-  //                 {actualField.type === 'switch' && (
-  //                   <Switch
-  //                     id={actualField.key}
-  //                     value={formField?.value || 'No'}
-  //                     label=""
-  //                     onChange={(value: any) => {
-  //                       formField.onChange(value);
-  //                     }}
-  //                   />
-  //                 )}
-  //                 {actualField.type === 'number' && (
-  //                   <Input
-  //                     type="number"
-  //                     {...formField}
-  //                     className="border p-2 w-full bg-gray-200"
-  //                     disabled={isFixedParent || actualField.disabled}
-  //                     onChange={(e) =>
-  //                       formField.onChange(Number(e.target.value))
-  //                     }
-  //                   />
-  //                 )}
-  //                 {actualField.type === 'textarea' && (
-  //                   <Textarea
-  //                     {...formField}
-  //                     className="border p-2 w-full"
-  //                     disabled={isFixedParent || actualField.disabled}
-  //                     onChange={(e) => formField.onChange(e.target.value)}
-  //                   />
-  //                 )}
-  //               </div>
-  //             </FormControl>
-  //             <FormMessage />
-  //           </FormItem>
-  //         )}
-  //       />
-  //     );
-  //   },
-  //   [syncProcessor, fixedParents, form.control]
-  // );
 
   const renderFormField = React.useCallback(
-  (field: any) => {
-    console.log(`🎨 Rendering field: ${field.key}`);
-    
-    // Check visibility
-    if (
-      field.sync &&
-      !syncProcessor.isFieldVisible(field.key) &&
-      !syncProcessor.isFieldVisible(field.key.split('.').pop()!)
-    ) {
-      console.log(`❌ Field ${field.key} is not visible, skipping render`);
-      return null;
-    }
+    (field: any) => {
+      console.log(`🎨 Rendering field: ${field.key}`);
 
-    console.log(`✅ Field ${field.key} is visible, proceeding with render`);
+      // Check visibility
+      if (
+        field.sync &&
+        !syncProcessor.isFieldVisible(field.key) &&
+        !syncProcessor.isFieldVisible(field.key.split('.').pop()!)
+      ) {
+        console.log(`❌ Field ${field.key} is not visible, skipping render`);
+        return null;
+      }
 
-    // Get dynamic options
-    const dynamicOptions =
-      syncProcessor.getFieldOptions(field.key) ||
-      syncProcessor.getFieldOptions(field.key.split('.').pop()!);
-    console.log(`🎛️ Dynamic options for ${field.key}:`, dynamicOptions);
+      console.log(`✅ Field ${field.key} is visible, proceeding with render`);
 
-    // Get dynamic field configuration
-    let actualField =
-      syncProcessor.getDynamicField(field.key) ||
-      syncProcessor.getDynamicField(field.key.split('.').pop()!) ||
-      field;
+      // Get dynamic options
+      const syncOptions =
+        syncProcessor.getFieldOptions(field.key) ||
+        syncProcessor.getFieldOptions(field.key.split('.').pop()!);
 
-    const isFixedParent = isFixedParentField(actualField.key, fixedParents);
-    const parentData = getFixedParentData(actualField.key, fixedParents);
-    console.log(
-      `🔧 Field ${field.key} - Type: ${actualField.type}, Fixed: ${isFixedParent}`
-    );
-    console.log(JSON.stringify(parentData));
+      // Get API config
+      const apiConfig =
+        syncProcessor.getFieldApiConfig(field.key) ||
+        syncProcessor.getFieldApiConfig(field.key.split('.').pop()!);
 
-    // Helper function for multiselect data (no useMemo)
-    const getMultiselectData = () => {
-      if (actualField.type !== 'multiselect') return null;
-      
-      const fieldOptions = dynamicOptions || (() => {
-        //@ts-ignore
-        return actualField.key
-          ? //@ts-expect-error
-            multiSelectData[actualField.key] ||
-            //@ts-expect-error
-            multiSelectData[actualField.key.split('.').pop()!] ||
-            []
-          : [];
-      })();
+      // FIX: Improved API data options retrieval with multiple fallbacks
+      const getApiDataOptions = () => {
+        if (!apiConfig) return [];
 
-      const fieldDefaultValues = (() => {
-        //@ts-ignore
-        const fieldValues = actualField.key
-          ? //@ts-expect-error
-            formReady[actualField.key]
-          : [];
+        const keys = [
+          apiConfig.populatedKey,
+          apiConfig.populatedKey?.split('.').pop(),
+          field.key,
+          field.key.split('.').pop(),
+        ].filter(Boolean);
 
-        const formatValue = (value: any) => {
-          if (Array.isArray(value)) {
-            return value.map((item) =>
-              typeof item === 'object' && item !== null
-                ? item
-                : { label: item, value: item }
-            );
-          } else if (value !== null && value !== undefined) {
-            return typeof value === 'object' && value !== null
-              ? [value]
-              : [{ label: value, value: value }];
-          }
-          return [];
-        };
-
-        const formattedFieldValues = formatValue(fieldValues);
-        if (!Array.isArray(formattedFieldValues) || !Array.isArray(fieldOptions))
-          return [];
-
-        //@ts-ignore
-        let fieldValueIds = formattedFieldValues.map((item) => item.id);
-        if (!fieldValueIds[0]) {
+        for (const key of keys) {
           //@ts-ignore
-          fieldValueIds = formattedFieldValues.map((item) => item.value);
+          const data = multiSelectData[key];
+          if (data && Array.isArray(data) && data.length > 0) {
+            console.log(`✅ Found API data for ${field.key} under key: ${key}`);
+            return data;
+          }
         }
 
-        return fieldOptions.filter((option) =>
-          fieldValueIds.includes(option.value)
+        console.log(
+          `⚠️ No API data found for ${field.key}, checked keys:`,
+          keys
         );
-      })();
-
-      return { fieldOptions, fieldDefaultValues };
-    };
-
-    // Helper function for multiselect static data (no useMemo)
-    const getMultiselectStaticData = () => {
-      if (actualField.type !== 'multiselectstatic') return null;
-      
-      const fieldOptions = dynamicOptions || (() => {
-        if (actualField.values && Array.isArray(actualField.values) && actualField.values.length > 0) {
-          return actualField.values.map((option: any) => ({
-            value: option.value || option.Value,
-            label: option.label || option.Label,
-          }));
-        }
         return [];
+      };
+
+      const apiDataOptions = getApiDataOptions();
+
+      // FIX: Better option priority with validation
+      const dynamicOptions = (() => {
+        if (
+          syncOptions &&
+          Array.isArray(syncOptions) &&
+          syncOptions.length > 0
+        ) {
+          console.log(
+            `🎛️ Using sync options for ${field.key}:`,
+            syncOptions.length
+          );
+          return syncOptions;
+        }
+
+        if (apiConfig && apiDataOptions.length > 0) {
+          console.log(
+            `🌐 Using API data options for ${field.key}:`,
+            apiDataOptions.length
+          );
+          return apiDataOptions;
+        }
+
+        console.log(`📝 No dynamic options for ${field.key}`);
+        return null;
       })();
 
-      const fieldDefaultValues = (() => {
-        //@ts-ignore
-        const fieldValues = (() => {
-          if (!actualField.key) return [];
+      // Log the final options being used
+      if (dynamicOptions) {
+        console.log(`🎯 Final options for ${field.key}:`, {
+          count: dynamicOptions.length,
+          source: syncOptions ? 'sync' : 'api',
+          sample: dynamicOptions.slice(0, 3),
+        });
+      }
 
-          const getNestedValue = (obj: any, path: string) => {
-            return path.split('.').reduce((current, key) => {
-              return current && current[key] !== undefined ? current[key] : undefined;
-            }, obj);
+      // Get dynamic field configuration
+      let actualField =
+        syncProcessor.getDynamicField(field.key) ||
+        syncProcessor.getDynamicField(field.key.split('.').pop()!) ||
+        field;
+
+      const isFixedParent = isFixedParentField(actualField.key, fixedParents);
+      const parentData = getFixedParentData(actualField.key, fixedParents);
+
+
+      // Helper function for multiselect data (no useMemo)
+      const getMultiselectData = () => {
+        if (actualField.type !== 'multiselect') return null;
+
+        const fieldOptions =
+          dynamicOptions ||
+          (() => {
+            return actualField.key
+              ? //@ts-ignore
+                multiSelectData[actualField.key] ||
+                  //@ts-ignore
+                  multiSelectData[actualField.key.split('.').pop()!] ||
+                  []
+              : [];
+          })();
+
+        const fieldDefaultValues = (() => {
+          //@ts-ignore
+          const fieldValues = actualField.key
+            ? //@ts-expect-error
+              formReady[actualField.key]
+            : [];
+
+          const formatValue = (value: any) => {
+            if (Array.isArray(value)) {
+              return value.map((item) =>
+                typeof item === 'object' && item !== null
+                  ? item
+                  : { label: item, value: item }
+              );
+            } else if (value !== null && value !== undefined) {
+              return typeof value === 'object' && value !== null
+                ? [value]
+                : [{ label: value, value: value }];
+            }
+            return [];
           };
 
-          const nestedValue = getNestedValue(formReady, actualField.key);
-          if (nestedValue !== undefined) return nestedValue;
+          const formattedFieldValues = formatValue(fieldValues);
+          if (
+            !Array.isArray(formattedFieldValues) ||
+            !Array.isArray(fieldOptions)
+          )
+            return [];
 
           //@ts-ignore
-          const directValue = formReady[actualField.key];
-          if (directValue !== undefined) return directValue;
+          let fieldValueIds = formattedFieldValues.map((item) => item.id);
+          if (!fieldValueIds[0]) {
+            //@ts-ignore
+            fieldValueIds = formattedFieldValues.map((item) => item.value);
+          }
 
-          const lastKey = actualField.key.split('.').pop();
-          //@ts-ignore
-          return formReady[lastKey!] || [];
+          return fieldOptions.filter((option) =>
+            fieldValueIds.includes(option.value)
+          );
         })();
 
-        console.log(fieldValues);
-        console.log(actualField.key);
-        console.log('Here multiselectstatic fieldvalues');
+        return { fieldOptions, fieldDefaultValues };
+      };
 
-        const formatValue = (value: any) => {
-          if (Array.isArray(value)) {
-            return value.map((item) =>
-              typeof item === 'object' && item !== null
-                ? item
-                : { label: item, value: item }
-            );
-          } else if (value !== null && value !== undefined) {
-            return typeof value === 'object' && value !== null
-              ? [value]
-              : [{ label: value, value: value }];
-          }
-          return [];
-        };
+      // Helper function for multiselect static data (no useMemo)
+      const getMultiselectStaticData = () => {
+        if (actualField.type !== 'multiselectstatic') return null;
 
-        const formattedFieldValues = formatValue(fieldValues);
-        if (!Array.isArray(formattedFieldValues) || !Array.isArray(fieldOptions)) {
-          return [];
-        }
+        const fieldOptions =
+          dynamicOptions ||
+          (() => {
+            if (
+              actualField.values &&
+              Array.isArray(actualField.values) &&
+              actualField.values.length > 0
+            ) {
+              return actualField.values.map((option: any) => ({
+                value: option.value || option.Value,
+                label: option.label || option.Label,
+              }));
+            }
+            return [];
+          })();
 
-        //@ts-ignore
-        let fieldValueIds = formattedFieldValues.map((item) => item.id);
-        if (!fieldValueIds[0]) {
+        const fieldDefaultValues = (() => {
           //@ts-ignore
-          fieldValueIds = formattedFieldValues.map((item) => item.value);
-        }
+          const fieldValues = (() => {
+            if (!actualField.key) return [];
 
-        return fieldOptions.filter((option) =>
-          fieldValueIds.includes(option.value)
-        );
-      })();
+            const getNestedValue = (obj: any, path: string) => {
+              return path.split('.').reduce((current, key) => {
+                return current && current[key] !== undefined
+                  ? current[key]
+                  : undefined;
+              }, obj);
+            };
 
-      return { fieldOptions, fieldDefaultValues };
-    };
+            const nestedValue = getNestedValue(formReady, actualField.key);
+            if (nestedValue !== undefined) return nestedValue;
 
-    const multiselectData = getMultiselectData();
-    const multiselectStaticData = getMultiselectStaticData();
+            //@ts-ignore
+            const directValue = formReady[actualField.key];
+            if (directValue !== undefined) return directValue;
 
-    return (
-      <FormField
-        control={form.control}
-        key={actualField.key}
-        //@ts-ignore
-        name={actualField.key}
-        render={({ field: formField }) => (
-          <FormItem>
-            <FormLabel>
-              <BodyText variant="trimmed"> {actualField.label}</BodyText>
-              {actualField.required && (
-                <span className="text-red-500 ml-1 text-xl font-bold">*</span>
-              )}
-            </FormLabel>
-            <FormControl className="">
-              <div className="min-w-full">
-                {actualField.type === 'text' && (
-                  <Input
-                    className="border p-2 w-full"
-                    disabled={isFixedParent || actualField.disabled}
-                    {...formField}
-                  />
+            const lastKey = actualField.key.split('.').pop();
+            //@ts-ignore
+            return formReady[lastKey!] || [];
+          })();
+
+          console.log(fieldValues);
+          console.log(actualField.key);
+          console.log('Here multiselectstatic fieldvalues');
+
+          const formatValue = (value: any) => {
+            if (Array.isArray(value)) {
+              return value.map((item) =>
+                typeof item === 'object' && item !== null
+                  ? item
+                  : { label: item, value: item }
+              );
+            } else if (value !== null && value !== undefined) {
+              return typeof value === 'object' && value !== null
+                ? [value]
+                : [{ label: value, value: value }];
+            }
+            return [];
+          };
+
+          const formattedFieldValues = formatValue(fieldValues);
+          if (
+            !Array.isArray(formattedFieldValues) ||
+            !Array.isArray(fieldOptions)
+          ) {
+            return [];
+          }
+
+          //@ts-ignore
+          let fieldValueIds = formattedFieldValues.map((item) => item.id);
+          if (!fieldValueIds[0]) {
+            //@ts-ignore
+            fieldValueIds = formattedFieldValues.map((item) => item.value);
+          }
+
+          return fieldOptions.filter((option) =>
+            fieldValueIds.includes(option.value)
+          );
+        })();
+
+        return { fieldOptions, fieldDefaultValues };
+      };
+
+      const multiselectData = getMultiselectData();
+      const multiselectStaticData = getMultiselectStaticData();
+
+      return (
+        <FormField
+          control={form.control}
+          key={actualField.key}
+          //@ts-ignore
+          name={actualField.key}
+          render={({ field: formField }) => (
+            <FormItem>
+              <FormLabel>
+                <BodyText variant="trimmed"> {actualField.label}</BodyText>
+                {actualField.required && (
+                  <span className="text-red-500 ml-1 text-xl font-bold">*</span>
                 )}
-                {actualField.type === 'time' && (
-                  <Input
-                    type="time"
-                    className="border p-2 w-full"
-                    disabled={isFixedParent || actualField.disabled}
-                    {...formField}
-                  />
-                )}
-                {actualField.type === 'date' && (
-                  <Input
-                    type="date"
-                    className="border p-2 w-full"
-                    disabled={isFixedParent || actualField.disabled}
-                    {...formField}
-                  />
-                )}
-                {actualField.type === 'htmlfield' && (
-                  <div className="w-full -ml-2 mr-auto">
-                    <CustomJodit
-                      ref={editor}
+              </FormLabel>
+              <FormControl className="">
+                <div className="min-w-full">
+                  {actualField.type === 'text' && (
+                    <Input
+                      className="border p-2 w-full"
+                      disabled={isFixedParent || actualField.disabled}
+                      {...formField}
+                    />
+                  )}
+                  {actualField.type === 'time' && (
+                    <Input
+                      type="time"
+                      className="border p-2 w-full"
+                      disabled={isFixedParent || actualField.disabled}
+                      {...formField}
+                    />
+                  )}
+                  {actualField.type === 'date' && (
+                    <Input
+                      type="date"
+                      className="border p-2 w-full"
+                      disabled={isFixedParent || actualField.disabled}
+                      {...formField}
+                    />
+                  )}
+                  {actualField.type === 'htmlfield' && (
+                    <div className="w-full -ml-2 mr-auto">
+                      <CustomJodit
+                        ref={editor}
+                        onChange={formField.onChange}
+                        value={formField.value}
+                        variable="blogPreview"
+                        editorStyles="min-width:100% !important;"
+                      />
+                    </div>
+                  )}
+                  {actualField.type === 'multiselect' && multiselectData && (
+                    <MultiSelect
+                      key={`${actualField.key}-${
+                        multiselectData.fieldOptions?.length || 0
+                      }`}
+                      options={multiselectData.fieldOptions || []}
+                      className="basic-multi-select"
+                      placeholder="Select "
+                      defaultValues={
+                        isFixedParent
+                          ? [parentData]
+                          : multiselectData.fieldDefaultValues || []
+                      }
+                      disabled={isFixedParent || actualField.disabled}
                       onChange={formField.onChange}
-                      value={formField.value}
-                      variable="blogPreview"
-                      editorStyles="min-width:100% !important;"
                     />
-                  </div>
-                )}
-                {actualField.type === 'multiselect' && multiselectData && (
-                  <MultiSelect
-                    key={`${actualField.key}-${multiselectData.fieldOptions?.length || 0}`}
-                    options={multiselectData.fieldOptions || []}
-                    className="basic-multi-select"
-                    placeholder="Select "
-                    defaultValues={
-                      isFixedParent ? [parentData] : multiselectData.fieldDefaultValues || []
-                    }
-                    disabled={isFixedParent || actualField.disabled}
-                    onChange={formField.onChange}
-                  />
-                )}
-                {actualField.type === 'multiselectstatic' && multiselectStaticData && (
-                  <MultiSelect
-                    key={`${actualField.key}-${multiselectStaticData.fieldOptions?.length || 0}`}
-                    options={multiselectStaticData.fieldOptions || []}
-                    className="basic-multi-select"
-                    placeholder="Select "
-                    defaultValues={
-                      isFixedParent ? [parentData] : multiselectStaticData.fieldDefaultValues || []
-                    }
-                    disabled={isFixedParent || actualField.disabled}
-                    onChange={formField.onChange}
-                  />
-                )}
-                {actualField.type === 'singleselect' && (
-                  <Combobox
-                    key={actualField.key}
-                    options={
-                      dynamicOptions ||
-                      (actualField.key
-                        ? //@ts-expect-error
-                          multiSelectData[actualField.key] ||
-                          //@ts-expect-error
-                          multiSelectData[actualField.key.split('.').pop()!] ||
-                          []
-                        : [])
-                    }
-                    className="basic-single-select"
-                    placeholder="Select "
-                    disabled={isFixedParent || actualField.disabled}
-                    defaultValue={
-                      isFixedParent
-                        ? parentData
-                        : findMatchingOptionsForSingleSelect(
-                            dynamicOptions ||
-                              //@ts-ignore
-                              multiSelectData[actualField.key] ||
-                              [],
-                            formField.value || []
-                          )
-                    }
-                    onChange={(selected) => {
-                      formField.onChange(selected);
-                    }}
-                  />
-                )}
-                {actualField.type === 'singleselectstatic' && (
-                  <Combobox
-                    key={actualField.key}
-                    options={
-                      dynamicOptions ||
-                      (actualField.key
-                        ? //@ts-expect-error
-                          singleSelectStaticOptions[actualField.key] ||
-                          //@ts-expect-error
-                          singleSelectStaticOptions[actualField.key.split('.').pop()!] ||
-                          []
-                        : [])
-                    }
-                    className="basic-select"
-                    disabled={isFixedParent || actualField.disabled}
-                    defaultValue={
-                      formField.value
-                        ? { value: formField.value, label: formField.value }
-                        : null
-                    }
-                    onChange={(selected) => {
-                      formField.onChange(selected);
-                    }}
-                    placeholder="Select an option..."
-                  />
-                )}
-                {actualField.type === 'filegallery' && (
-                  <div className="p-4" key={actualField.key}>
-                    <EnhancedFileUploader
-                      multiple={true}
-                      onFilesChange={(files) => {
-                        //@ts-ignore
-                        handleFileUpload(actualField.key, files);
+                  )}
+                  {actualField.type === 'multiselectstatic' &&
+                    multiselectStaticData && (
+                      <MultiSelect
+                        key={`${actualField.key}-${
+                          multiselectStaticData.fieldOptions?.length || 0
+                        }`}
+                        options={multiselectStaticData.fieldOptions || []}
+                        className="basic-multi-select"
+                        placeholder="Select "
+                        defaultValues={
+                          isFixedParent
+                            ? [parentData]
+                            : multiselectStaticData.fieldDefaultValues || []
+                        }
+                        disabled={isFixedParent || actualField.disabled}
+                        onChange={formField.onChange}
+                      />
+                    )}
+                  {actualField.type === 'singleselect' && (
+                    <Combobox
+                      key={actualField.key}
+                      options={
+                        dynamicOptions ||
+                        (actualField.key
+                          ? //@ts-expect-error
+                            multiSelectData[actualField.key] ||
+                            //@ts-expect-error
+                            multiSelectData[
+                              actualField.key.split('.').pop()!
+                            ] ||
+                            []
+                          : [])
+                      }
+                      className="basic-single-select"
+                      placeholder="Select "
+                      disabled={isFixedParent || actualField.disabled}
+                      defaultValue={
+                        isFixedParent
+                          ? parentData
+                          : findMatchingOptionsForSingleSelect(
+                              dynamicOptions ||
+                                //@ts-ignore
+                                multiSelectData[actualField.key] ||
+                                [],
+                              formField.value || []
+                            )
+                      }
+                      onChange={(selected) => {
+                        formField.onChange(selected);
                       }}
-                      //@ts-ignore
-                      value={getFilesForKey(actualField.key)}
-                      buttonText="Select Files"
-                      id={`file-gallery-upload-${actualField.key}`}
                     />
-                  </div>
-                )}
-                {actualField.type === 'jsonArray' && (
-                  <JsonFormField
-                    field={formField}
-                    label={actualField.label}
-                    schema={actualField.schema}
-                    required={actualField.required}
-                    disabled={actualField.disabled}
-                  />
-                )}
-                {actualField.type === 'file' && (
-                  <EnhancedFileUploader
-                    multiple={false}
-                    onFilesChange={(file) => {
-                      formField.onChange(file);
-                    }}
-                    value={formField.value}
-                    buttonText="Select File"
-                    id={`file-upload-${formField.name}`}
-                  />
-                )}
-                {actualField.type === 'switch' && (
-                  <Switch
-                    id={actualField.key}
-                    value={formField?.value || 'No'}
-                    label=""
-                    onChange={(value: any) => {
-                      formField.onChange(value);
-                    }}
-                  />
-                )}
-                {actualField.type === 'number' && (
-                  <Input
-                    type="number"
-                    {...formField}
-                    className="border p-2 w-full bg-gray-200"
-                    disabled={isFixedParent || actualField.disabled}
-                    onChange={(e) =>
-                      formField.onChange(Number(e.target.value))
-                    }
-                  />
-                )}
-                {actualField.type === 'textarea' && (
-                  <Textarea
-                    {...formField}
-                    className="border p-2 w-full"
-                    disabled={isFixedParent || actualField.disabled}
-                    onChange={(e) => formField.onChange(e.target.value)}
-                  />
-                )}
-              </div>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-    );
-  },
-  [syncProcessor, fixedParents, form.control]
-);
+                  )}
+                  {actualField.type === 'singleselectstatic' && (
+                    <Combobox
+                      key={actualField.key}
+                      options={
+                        dynamicOptions ||
+                        (actualField.key
+                          ? //@ts-expect-error
+                            singleSelectStaticOptions[actualField.key] ||
+                            //@ts-expect-error
+                            singleSelectStaticOptions[
+                              actualField.key.split('.').pop()!
+                            ] ||
+                            []
+                          : [])
+                      }
+                      className="basic-select"
+                      disabled={isFixedParent || actualField.disabled}
+                      defaultValue={
+                        formField.value
+                          ? { value: formField.value, label: formField.value }
+                          : null
+                      }
+                      onChange={(selected) => {
+                        formField.onChange(selected);
+                      }}
+                      placeholder="Select an option..."
+                    />
+                  )}
+                  {actualField.type === 'filegallery' && (
+                    <div className="p-4" key={actualField.key}>
+                      <EnhancedFileUploader
+                        multiple={true}
+                        onFilesChange={(files) => {
+                          //@ts-ignore
+                          handleFileUpload(actualField.key, files);
+                        }}
+                        //@ts-ignore
+                        value={getFilesForKey(actualField.key)}
+                        buttonText="Select Files"
+                        id={`file-gallery-upload-${actualField.key}`}
+                      />
+                    </div>
+                  )}
+                  {actualField.type === 'jsonArray' && (
+                    <JsonFormField
+                      field={formField}
+                      label={actualField.label}
+                      schema={actualField.schema}
+                      required={actualField.required}
+                      disabled={actualField.disabled}
+                    />
+                  )}
+                  {actualField.type === 'file' && (
+                    <EnhancedFileUploader
+                      multiple={false}
+                      onFilesChange={(file) => {
+                        formField.onChange(file);
+                      }}
+                      value={formField.value}
+                      buttonText="Select File"
+                      id={`file-upload-${formField.name}`}
+                    />
+                  )}
+                  {actualField.type === 'switch' && (
+                    <Switch
+                      id={actualField.key}
+                      value={formField?.value || 'No'}
+                      label=""
+                      onChange={(value: any) => {
+                        formField.onChange(value);
+                      }}
+                    />
+                  )}
+                  {actualField.type === 'number' && (
+                    <Input
+                      type="number"
+                      {...formField}
+                      className="border p-2 w-full bg-gray-200"
+                      disabled={isFixedParent || actualField.disabled}
+                      onChange={(e) =>
+                        formField.onChange(Number(e.target.value))
+                      }
+                    />
+                  )}
+                  {actualField.type === 'textarea' && (
+                    <Textarea
+                      {...formField}
+                      className="border p-2 w-full"
+                      disabled={isFixedParent || actualField.disabled}
+                      onChange={(e) => formField.onChange(e.target.value)}
+                    />
+                  )}
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      );
+    },
+    [syncProcessor, fixedParents, form.control]
+  );
 
   const createNestedPath = (
     parentPath: string,
@@ -2850,8 +2734,10 @@ const handleDataUpdate = React.useCallback(
       if (field.sync && !syncProcessor.isFieldVisible(field.key)) {
         return;
       }
-
+      console.log(field.key);
+      console.log("Here dynamic field and key")
       const dynamicField = syncProcessor.getDynamicField(field.key);
+      console.log(dynamicField);
       const actualField: any = dynamicField || field;
 
       if (actualField.children) {
