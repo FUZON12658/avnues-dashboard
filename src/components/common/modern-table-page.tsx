@@ -472,9 +472,6 @@ const getAllApi = async (slug: string, fetchLink: string | null) => {
     fetchLink === null
       ? `/api/v1/${slug}`
       : `${fetchLink}`,
-    {
-      withCredentials: true,
-    }
   );
   return data;
 };
@@ -543,9 +540,6 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
   const deleteItemApi = async (id:string) => {
     const response = await crAxios.delete(
       `${backendFetchedData?.displayModel?.actions?.delete?.actionRoute}${id}`,
-      {
-        withCredentials: true,
-      }
     );
     return response.data;
   };
