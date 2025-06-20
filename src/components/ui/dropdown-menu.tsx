@@ -10,6 +10,7 @@ type ComboboxOption = {
 type ComboboxProps = {
   options: ComboboxOption[];
   placeholder?: string;
+  id?: string|null;
   defaultValue?: any;
   className?: string;
   disabled?: boolean;
@@ -18,6 +19,7 @@ type ComboboxProps = {
 
 const Combobox = ({
   options,
+  id=null,
   placeholder = 'Select an option',
   defaultValue = '',
   className = '',
@@ -45,7 +47,7 @@ const Combobox = ({
     if (defaultValue && defaultValue.value && selectedValue!==defaultValue.value) {
       console.log('Setting default value:', defaultValue);
       setSelectedValue(defaultValue.value);
-      // !defaultValue && onChange && onChange(defaultValue.value)
+      onChange && onChange(defaultValue.value)
     }
   }, [defaultValue]);
 
@@ -85,6 +87,19 @@ const Combobox = ({
     setIsOpen(true);
   };
 
+  const checkIfNeedsId = (option:any)=>{
+    console.log(option);
+    if (option.requiresId){
+      if(id!==null||id!==undefined){
+        console.log("returning as true as id is present");
+        return true;
+      }
+      console.log("returning as false as id is not present")
+      return false;
+    }
+          console.log("directly returning as true")
+    return true;
+  }
   return (
     <div className={`relative w-full ${className}`} ref={dropdownRef} >
       <div
@@ -116,14 +131,14 @@ const Combobox = ({
       {isOpen && (
         <div className="absolute z-10 w-full mt-1 bg-white dark:bg-surface-200 border border-border rounded-sm shadow-lg max-h-60 overflow-auto">
           {filteredOptions.length > 0 ? (
-            filteredOptions.map((option) => (
-              <div
+            filteredOptions.map((option) => ( 
+              checkIfNeedsId(option) && <div
                 key={option.value}
                 className={`px-4 py-2  hover:bg-gray-100 dark:hover:bg-surface-300 ${
                   option.value === selectedValue ? 'bg-gray-100 opacity-75 dark:bg-surface-300 cursor-not-allowed' : 'cursor-pointer'
                 }`}
 
-                onClick={() => option.value !== selectedValue && handleSelect(option)}
+                onClick={() => option.value !== selectedValue  && handleSelect(option)}
               >
                 {option.label}
               </div>

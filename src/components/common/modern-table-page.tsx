@@ -34,7 +34,6 @@ import {
   LineChart,
   Line,
 } from 'recharts';
-import axios from 'axios';
 
 // Import your existing UI components
 import Combobox from '@/components/ui/dropdown-menu';
@@ -48,6 +47,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { formatDateInNepaliTimezone } from '@/lib/utils';
+import { crAxios } from '@/api';
 
 const DeleteConfirmationModal = ({
   isOpen,
@@ -468,10 +468,10 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
 };
 
 const getAllApi = async (slug: string, fetchLink: string | null) => {
-  const { data } = await axios.get(
+  const { data } = await crAxios.get(
     fetchLink === null
-      ? `${process.env.NEXT_PUBLIC_API_HOST}/api/v1/${slug}`
-      : `${process.env.NEXT_PUBLIC_API_HOST}${fetchLink}`,
+      ? `/api/v1/${slug}`
+      : `${fetchLink}`,
     {
       withCredentials: true,
     }
@@ -541,8 +541,8 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
     return processedLink;
   };
   const deleteItemApi = async (id:string) => {
-    const response = await axios.delete(
-      `${process.env.NEXT_PUBLIC_API_HOST}${backendFetchedData?.displayModel?.actions?.delete?.actionRoute}${id}`,
+    const response = await crAxios.delete(
+      `${backendFetchedData?.displayModel?.actions?.delete?.actionRoute}${id}`,
       {
         withCredentials: true,
       }
@@ -1298,7 +1298,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
               const handleClick = () => {
                 const processedLink = processLink(action.link, item);
 
-                if (processedLink.startsWith('http')) {
+                if (processedLink.startsWith('https')) {
                   window.open(processedLink, '_blank');
                 } else {
                   localStorage.setItem(

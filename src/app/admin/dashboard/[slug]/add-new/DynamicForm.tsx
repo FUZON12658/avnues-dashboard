@@ -24,7 +24,7 @@ import {
   useQuery,
 } from '@tanstack/react-query';
 import { X } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import Select from 'react-select';
@@ -45,9 +45,12 @@ import {
   CustomTabsContent,
 } from '@/components/ui/custom-tab';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { SentIcon } from '@hugeicons/core-free-icons';
+import { Add01Icon, Edit02Icon, SentIcon } from '@hugeicons/core-free-icons';
 import { EnhancedFileUploader } from '@/components/filemanager/file-picker-modal';
-import { useDeepCompareEffect, useDeepCompareMemo } from '@/hooks/deepCompareMemo';
+import {
+  useDeepCompareEffect,
+  useDeepCompareMemo,
+} from '@/hooks/deepCompareMemo';
 
 interface NestedFieldConfig {
   key: string;
@@ -115,7 +118,9 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
   // Helper function to extract value from form field
   const extractValue = (rawValue: any) => {
     if (rawValue === null || rawValue === undefined) return null;
-
+    console.log('raw value here:');
+    console.log(rawValue);
+    console.log('raw value ended');
     // Handle object with value property (like from select components)
     if (typeof rawValue === 'object' && rawValue.value !== undefined) {
       return rawValue.value;
@@ -170,7 +175,6 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
 
     Object.keys(obj).forEach((key) => {
       const fullPath = currentPath ? `${currentPath}.${key}` : key;
-
       if (key === targetKey) {
         paths.push(fullPath);
       }
@@ -284,17 +288,17 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                 `🗺️ Found value map for ${dependentValue}:`,
                 valueMap
               );
-
+              console.log(`processing dependent value: ${dependentValue}`);
               switch (sync.dependencyType) {
                 case 'restriction':
                   if (valueMap.show?.includes(field.key)) {
                     newVisibleFields.add(fieldPath);
                     newVisibleFields.add(field.key);
                   }
-                  if (valueMap.hide?.includes(field.key)) {
-                    newVisibleFields.delete(fieldPath);
-                    newVisibleFields.delete(field.key);
-                  }
+                  // if (valueMap.hide?.includes(field.key)) {
+                  //   newVisibleFields.delete(fieldPath);
+                  //   newVisibleFields.delete(field.key);
+                  // }
                   break;
 
                 case 'value_update':
@@ -351,7 +355,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                   if (valueMap.generateField) {
                     const dynamicField = {
                       ...valueMap.generateField,
-                      key: field.key
+                      key: field.key,
                     };
 
                     // Get the parent context from the dependent field path
@@ -471,42 +475,177 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
             `📊 Current value of parent ${field.key} at ${currentFieldPath}:`,
             currentValue
           );
+          console.log(currentValue);
+          console.log('current value just before current value');
+          let currentVal = Array.isArray(currentValue)
+            ? currentValue
+            : [currentValue];
+          currentVal.forEach((currentValue) => {
+            if (currentValue && sync.valueMaps?.[currentValue]) {
+              console.log(`processing current value: ${currentValue}`);
+              const valueMap = sync.valueMaps[currentValue];
+              console.log('current value just before current value 2');
+              switch (sync.dependencyType) {
+                case 'restriction':
+                  valueMap.show?.forEach((key: string) => {
+                    // Find the correct context for the controlled field
+                    const parentContext = getParentPathContext(
+                      currentFieldPath,
+                      field.key
+                    );
+                    const controlledFieldPath = parentContext
+                      ? `${parentContext}.${key}`
+                      : key;
 
-          if (currentValue && sync.valueMaps?.[currentValue]) {
-            const valueMap = sync.valueMaps[currentValue];
+                    newVisibleFields.add(controlledFieldPath);
+                    newVisibleFields.add(key);
+                  });
+                  // valueMap.hide?.forEach((key: string) => {
+                  //   const parentContext = getParentPathContext(
+                  //     currentFieldPath,
+                  //     field.key
+                  //   );
+                  //   const controlledFieldPath = parentContext
+                  //     ? `${parentContext}.${key}`
+                  //     : key;
 
-            switch (sync.dependencyType) {
-              case 'restriction':
-                valueMap.show?.forEach((key: string) => {
-                  // Find the correct context for the controlled field
-                  const parentContext = getParentPathContext(
-                    currentFieldPath,
-                    field.key
-                  );
-                  const controlledFieldPath = parentContext
-                    ? `${parentContext}.${key}`
-                    : key;
+                  //   newVisibleFields.delete(controlledFieldPath);
+                  //   newVisibleFields.delete(key);
+                  // });
+                  break;
 
-                  newVisibleFields.add(controlledFieldPath);
-                  newVisibleFields.add(key);
-                });
-                valueMap.hide?.forEach((key: string) => {
-                  const parentContext = getParentPathContext(
-                    currentFieldPath,
-                    field.key
-                  );
-                  const controlledFieldPath = parentContext
-                    ? `${parentContext}.${key}`
-                    : key;
+                case 'value_update':
+                  followedKeys.forEach((followedKey: any) => {
+                    // Find the correct path for the followed field in the same context
+                    const parentContext = getParentPathContext(
+                      currentFieldPath,
+                      field.key
+                    );
+                    const followedFieldPath = parentContext
+                      ? `${parentContext}.${followedKey}`
+                      : followedKey;
 
-                  newVisibleFields.delete(controlledFieldPath);
-                  newVisibleFields.delete(key);
-                });
-                break;
+                    newVisibleFields.add(followedFieldPath);
+                    newVisibleFields.add(followedKey);
 
-              case 'value_update':
+                    if (valueMap.options) {
+                      newFieldOptions.set(followedFieldPath, valueMap.options);
+                      newFieldOptions.set(followedKey, valueMap.options);
+                      console.log(
+                        `🎛️ Setting options for controlled field ${followedFieldPath}:`,
+                        valueMap.options
+                      );
+                    } else if (valueMap.updateField) {
+                      const updateField = valueMap.updateField;
+
+                      // Handle API configuration for followed fields
+                      if (updateField.dataRoute && updateField.dataToShow) {
+                        const apiConfig = {
+                          dataRoute: updateField.dataRoute,
+                          dataToShow: updateField.dataToShow,
+                          populatedKey: updateField.populatedKey || followedKey,
+                        };
+
+                        // Store API config for the followed field
+                        newFieldApiConfig.set(followedFieldPath, apiConfig);
+                        newFieldApiConfig.set(followedKey, apiConfig);
+                        console.log(
+                          `🌐 Setting API config for followed field ${followedFieldPath}:`,
+                          apiConfig
+                        );
+                      }
+
+                      // Handle static values from updateField for followed fields
+                      if (updateField.values) {
+                        const staticOptions = updateField.values.map(
+                          (option: any) => ({
+                            value: option.value || option.Value,
+                            label: option.label || option.Label,
+                          })
+                        );
+                        newFieldOptions.set(followedFieldPath, staticOptions);
+                        newFieldOptions.set(followedKey, staticOptions);
+                        console.log(
+                          `🎛️ Setting updateField static options for followed field ${followedFieldPath}:`,
+                          staticOptions
+                        );
+                      }
+                    }
+                  });
+                  break;
+
+                case 'dynamicFieldGen':
+                  followedKeys.forEach((followedKey: any) => {
+                    if (valueMap.generateField) {
+                      const dynamicField = {
+                        ...valueMap.generateField,
+                      };
+
+                      // Use the parent context from the current field path
+                      const parentContext = getParentPathContext(
+                        currentFieldPath,
+                        field.key
+                      );
+                      const dynamicFieldPath = parentContext
+                        ? `${parentContext}.${dynamicField.key}`
+                        : dynamicField.key;
+                      // Also add the base path without array indices
+                      const baseParentContext = parentContext.replace(
+                        /\[\d+\]/g,
+                        ''
+                      );
+                      const baseDynamicFieldPath = baseParentContext
+                        ? `${baseParentContext}.${dynamicField.key}`
+                        : dynamicField.key;
+                      dynamicField.key = dynamicFieldPath;
+                      newDynamicFields.set(dynamicFieldPath, dynamicField);
+                      newDynamicFields.set(dynamicField.key, dynamicField);
+                      newDynamicFields.set(baseDynamicFieldPath, dynamicField);
+
+                      newVisibleFields.add(dynamicFieldPath);
+                      newVisibleFields.add(dynamicField.key);
+                      newVisibleFields.add(baseDynamicFieldPath);
+
+                      console.log(
+                        `✨ Generated dynamic field for ${dynamicFieldPath} and ${baseDynamicFieldPath}:`,
+                        dynamicField
+                      );
+                    } else {
+                      const parentContext = getParentPathContext(
+                        currentFieldPath,
+                        field.key
+                      );
+                      const dynamicFieldPath = parentContext
+                        ? `${parentContext}.${followedKey}`
+                        : followedKey;
+
+                      const baseParentContext = parentContext.replace(
+                        /\[\d+\]/g,
+                        ''
+                      );
+                      const baseDynamicFieldPath = baseParentContext
+                        ? `${baseParentContext}.${followedKey}`
+                        : followedKey;
+
+                      newDynamicFields.delete(dynamicFieldPath);
+                      newDynamicFields.delete(followedKey);
+                      newDynamicFields.delete(baseDynamicFieldPath);
+
+                      newVisibleFields.delete(dynamicFieldPath);
+                      newVisibleFields.delete(followedKey);
+                      newVisibleFields.delete(baseDynamicFieldPath);
+
+                      console.log(
+                        `🗑️ Removed dynamic field for ${dynamicFieldPath} and ${baseDynamicFieldPath}`
+                      );
+                    }
+                  });
+                  break;
+              }
+            } else {
+              // Clear options/fields for controlled fields when parent has no value
+              if (sync.dependencyType === 'value_update') {
                 followedKeys.forEach((followedKey: any) => {
-                  // Find the correct path for the followed field in the same context
                   const parentContext = getParentPathContext(
                     currentFieldPath,
                     field.key
@@ -517,186 +656,63 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
 
                   newVisibleFields.add(followedFieldPath);
                   newVisibleFields.add(followedKey);
-
-                  if (valueMap.options) {
-                    newFieldOptions.set(followedFieldPath, valueMap.options);
-                    newFieldOptions.set(followedKey, valueMap.options);
-                    console.log(
-                      `🎛️ Setting options for controlled field ${followedFieldPath}:`,
-                      valueMap.options
-                    );
-                  } else if (valueMap.updateField) {
-                    const updateField = valueMap.updateField;
-
-                    // Handle API configuration for followed fields
-                    if (updateField.dataRoute && updateField.dataToShow) {
-                      const apiConfig = {
-                        dataRoute: updateField.dataRoute,
-                        dataToShow: updateField.dataToShow,
-                        populatedKey: updateField.populatedKey || followedKey,
-                      };
-
-                      // Store API config for the followed field
-                      newFieldApiConfig.set(followedFieldPath, apiConfig);
-                      newFieldApiConfig.set(followedKey, apiConfig);
-                      console.log(
-                        `🌐 Setting API config for followed field ${followedFieldPath}:`,
-                        apiConfig
-                      );
-                    }
-
-                    // Handle static values from updateField for followed fields
-                    if (updateField.values) {
-                      const staticOptions = updateField.values.map(
-                        (option: any) => ({
-                          value: option.value || option.Value,
-                          label: option.label || option.Label,
-                        })
-                      );
-                      newFieldOptions.set(followedFieldPath, staticOptions);
-                      newFieldOptions.set(followedKey, staticOptions);
-                      console.log(
-                        `🎛️ Setting updateField static options for followed field ${followedFieldPath}:`,
-                        staticOptions
-                      );
-                    }
-                  }
+                  // Clear both options and API config
+                  newFieldOptions.delete(followedFieldPath);
+                  newFieldOptions.delete(followedKey);
+                  newFieldApiConfig.delete(followedFieldPath);
+                  newFieldApiConfig.delete(followedKey);
+                  console.log(
+                    `🧹 Cleared options and API config for controlled field ${followedFieldPath} (no parent value)`
+                  );
                 });
-                break;
-
-              case 'dynamicFieldGen':
+              } else if (sync.dependencyType === 'dynamicFieldGen') {
                 followedKeys.forEach((followedKey: any) => {
-                  if (valueMap.generateField) {
-                    const dynamicField = {
-                      ...valueMap.generateField,
-                    };
+                  const parentContext = getParentPathContext(
+                    currentFieldPath,
+                    field.key
+                  );
+                  const baseParentContext = parentContext.replace(
+                    /\[\d+\]/g,
+                    ''
+                  );
 
-                    // Use the parent context from the current field path
-                    const parentContext = getParentPathContext(
-                      currentFieldPath,
-                      field.key
-                    );
-                    const dynamicFieldPath = parentContext
-                      ? `${parentContext}.${dynamicField.key}`
-                      : dynamicField.key;
-                    // Also add the base path without array indices
-                    const baseParentContext = parentContext.replace(
-                      /\[\d+\]/g,
-                      ''
-                    );
-                    const baseDynamicFieldPath = baseParentContext
-                      ? `${baseParentContext}.${dynamicField.key}`
-                      : dynamicField.key;
-                    dynamicField.key=dynamicFieldPath
-                    newDynamicFields.set(dynamicFieldPath, dynamicField);
-                    newDynamicFields.set(dynamicField.key, dynamicField);
-                    newDynamicFields.set(baseDynamicFieldPath, dynamicField);
+                  // Clean up any dynamic fields that might have been generated
+                  newDynamicFields.forEach((dynamicField, path) => {
+                    const pathContext = parentContext
+                      ? `${parentContext}.`
+                      : '';
+                    const basePathContext = baseParentContext
+                      ? `${baseParentContext}.`
+                      : '';
 
-                    newVisibleFields.add(dynamicFieldPath);
-                    newVisibleFields.add(dynamicField.key);
-                    newVisibleFields.add(baseDynamicFieldPath);
+                    if (
+                      (path.startsWith(pathContext) ||
+                        path.startsWith(basePathContext)) &&
+                      path.includes(followedKey)
+                    ) {
+                      newDynamicFields.delete(path);
+                      newVisibleFields.delete(path);
+                    }
+                  });
 
-                    console.log(
-                      `✨ Generated dynamic field for ${dynamicFieldPath} and ${baseDynamicFieldPath}:`,
-                      dynamicField
-                    );
-                  } else {
-                    const parentContext = getParentPathContext(
-                      currentFieldPath,
-                      field.key
-                    );
-                    const dynamicFieldPath = parentContext
-                      ? `${parentContext}.${followedKey}`
-                      : followedKey;
+                  // Also clean up simple key references
+                  newDynamicFields.delete(followedKey);
+                  newVisibleFields.delete(followedKey);
 
-                    const baseParentContext = parentContext.replace(
-                      /\[\d+\]/g,
-                      ''
-                    );
-                    const baseDynamicFieldPath = baseParentContext
-                      ? `${baseParentContext}.${followedKey}`
-                      : followedKey;
+                  // Clean up base path references
+                  const baseDynamicFieldPath = baseParentContext
+                    ? `${baseParentContext}.${followedKey}`
+                    : followedKey;
+                  newDynamicFields.delete(baseDynamicFieldPath);
+                  newVisibleFields.delete(baseDynamicFieldPath);
 
-                    newDynamicFields.delete(dynamicFieldPath);
-                    newDynamicFields.delete(followedKey);
-                    newDynamicFields.delete(baseDynamicFieldPath);
-
-                    newVisibleFields.delete(dynamicFieldPath);
-                    newVisibleFields.delete(followedKey);
-                    newVisibleFields.delete(baseDynamicFieldPath);
-
-                    console.log(
-                      `🗑️ Removed dynamic field for ${dynamicFieldPath} and ${baseDynamicFieldPath}`
-                    );
-                  }
+                  console.log(
+                    `🗑️ Removed dynamic field for ${followedKey} and ${baseDynamicFieldPath} (no parent value)`
+                  );
                 });
-                break;
+              }
             }
-          } else {
-            // Clear options/fields for controlled fields when parent has no value
-            if (sync.dependencyType === 'value_update') {
-              followedKeys.forEach((followedKey: any) => {
-                const parentContext = getParentPathContext(
-                  currentFieldPath,
-                  field.key
-                );
-                const followedFieldPath = parentContext
-                  ? `${parentContext}.${followedKey}`
-                  : followedKey;
-
-                newVisibleFields.add(followedFieldPath);
-                newVisibleFields.add(followedKey);
-                // Clear both options and API config
-                newFieldOptions.delete(followedFieldPath);
-                newFieldOptions.delete(followedKey);
-                newFieldApiConfig.delete(followedFieldPath);
-                newFieldApiConfig.delete(followedKey);
-                console.log(
-                  `🧹 Cleared options and API config for controlled field ${followedFieldPath} (no parent value)`
-                );
-              });
-            } else if (sync.dependencyType === 'dynamicFieldGen') {
-              followedKeys.forEach((followedKey: any) => {
-                const parentContext = getParentPathContext(
-                  currentFieldPath,
-                  field.key
-                );
-                const baseParentContext = parentContext.replace(/\[\d+\]/g, '');
-
-                // Clean up any dynamic fields that might have been generated
-                newDynamicFields.forEach((dynamicField, path) => {
-                  const pathContext = parentContext ? `${parentContext}.` : '';
-                  const basePathContext = baseParentContext
-                    ? `${baseParentContext}.`
-                    : '';
-
-                  if (
-                    (path.startsWith(pathContext) ||
-                      path.startsWith(basePathContext)) &&
-                    path.includes(followedKey)
-                  ) {
-                    newDynamicFields.delete(path);
-                    newVisibleFields.delete(path);
-                  }
-                });
-
-                // Also clean up simple key references
-                newDynamicFields.delete(followedKey);
-                newVisibleFields.delete(followedKey);
-
-                // Clean up base path references
-                const baseDynamicFieldPath = baseParentContext
-                  ? `${baseParentContext}.${followedKey}`
-                  : followedKey;
-                newDynamicFields.delete(baseDynamicFieldPath);
-                newVisibleFields.delete(baseDynamicFieldPath);
-
-                console.log(
-                  `🗑️ Removed dynamic field for ${followedKey} and ${baseDynamicFieldPath} (no parent value)`
-                );
-              });
-            }
-          }
+          });
         });
       }
     });
@@ -909,8 +925,10 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   fixedParents,
   formDataSupplied,
 }) => {
-  console.log(fixedParents);
+  const [submitFormState, setSubmitFormState] = React.useState('submit');
+  const router = useRouter();
   const { slug } = useParams();
+  const pathname = usePathname();
   const [files, setFiles] = React.useState<Record<string, File[]>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [formReady, setFormReady] = React.useState({});
@@ -1034,7 +1052,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
   const putDetailsMutation = useMutation({
     mutationFn: putDetailsApi,
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({
         queryKey: [`${slug}-${suppliedId}-view`],
       });
@@ -1042,6 +1060,27 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         queryKey: [`${slug}-view`],
       });
       setIsSubmitting(false);
+      if (!pathname.includes('edit') && submitFormState === 'saveAndContinue') {
+        router.push(`/admin/dashboard/${slug}/edit/${data.mainData.id}`);
+      }
+      if (pathname.includes('edit') && submitFormState === 'saveAndAddNew') {
+        router.push(`/admin/dashboard/${slug}/add-new`);
+      }
+      if (
+        pathname.includes('/add-new') &&
+        submitFormState === 'saveAndAddNew'
+      ) {
+        window.location.reload();
+      }
+      if (
+        pathname.includes('/add-new') &&
+        submitFormState === 'saveAndContinue'
+      ) {
+        router.push(`/admin/dashboard/${slug}/edit/${data.mainData.id}`);
+      }
+      if (submitFormState === 'submit') {
+        router.push(`/admin/dashboard/${slug}`);
+      }
     },
     onError: () => {
       setIsSubmitting(false);
@@ -1050,11 +1089,32 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
   const postDetailMutation = useMutation({
     mutationFn: postDetailsApi,
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({
         queryKey: [`${slug}-view`],
       });
       setIsSubmitting(false);
+      if (!pathname.includes('edit') && submitFormState === 'saveAndContinue') {
+        router.push(`/admin/dashboard/${slug}/edit/${data.mainData.id}`);
+      }
+      if (pathname.includes('edit') && submitFormState === 'saveAndAddNew') {
+        router.push(`/admin/dashboard/${slug}/add-new`);
+      }
+      if (
+        pathname.includes('add-new') &&
+        submitFormState === 'saveAndAddNew'
+      ) {
+        window.location.reload();
+      }
+      if (
+        pathname.includes('add-new') &&
+        submitFormState === 'saveAndContinue'
+      ) {
+        router.push(`/admin/dashboard/${slug}/edit/${data.mainData.id}`);
+      }
+      if (submitFormState === 'submit') {
+        router.push(`/admin/dashboard/${slug}`);
+      }
     },
     onError: () => {
       setIsSubmitting(false);
@@ -1271,24 +1331,21 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
         fields.forEach((field) => {
           // Handle singleselectstatic fields
-          console.log('Here single select static');
-          console.log(field);
           if (
             field.type === 'singleselectstatic' &&
             Array.isArray(field.values)
           ) {
             //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-            staticOptions[field.key] = field.values.map((value) =>
-              value.value
-                ? {
-                    value: value.value,
-                    label: value.label,
-                  }
-                : {
-                    value,
-                    label: value,
-                  }
-            );
+            staticOptions[field.key] = field.values
+              .filter(
+                (value: any) =>
+                  !(value.editModeParam && !pathname.includes('edit'))
+              )
+              .map((value: any) =>
+                value.value
+                  ? { value: value.value, label: value.label }
+                  : { value, label: value }
+              );
           }
 
           // Handle static multiselect options provided directly in formFields
@@ -1890,11 +1947,11 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   };
 
   //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-  const onSubmit = async (data) => {
+  const onSubmit = async (data, action) => {
     try {
       const data = form.getValues();
       setIsSubmitting(true);
-
+      setSubmitFormState(action);
       let processedData = { ...data };
       console.log(processedData);
       // Get field types from viewData
@@ -1922,12 +1979,12 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         }
 
         if (fieldType === 'scorecard') {
-             //@ts-ignore
+          //@ts-ignore
           delete processedData[key];
         }
 
         if (fieldType === 'jsonArray' && Array.isArray(value)) {
-             //@ts-ignore
+          //@ts-ignore
           processedData[key] = await Promise.all(
             value.map(async (item) => {
               const processedItem = { ...item };
@@ -1973,12 +2030,13 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           Array.isArray(value) &&
           value.length > 0 &&
           (value[0]?.value || value[0]?.id)
-        ) {   //@ts-ignore
+        ) {
+          //@ts-ignore
           if (processedData[key] && processedData[key].length > 0) {
-               //@ts-ignore
+            //@ts-ignore
             processedData[key] = value.map((item) => item.value || item.id);
           } else {
-               //@ts-ignore
+            //@ts-ignore
             processedData[key] = null;
           }
           // Extract just the value from each selected option
@@ -1989,24 +2047,24 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           typeof value === 'object' &&
           'id' in value
         ) {
-             //@ts-ignore
+          //@ts-ignore
           processedData[key] = value.id;
         }
         if (fieldType === 'singleselect') {
           if (value && typeof value === 'object' && 'value' in value) {
-               //@ts-ignore
+            //@ts-ignore
             processedData[key] = value.value;
           } else if (value) {
-               //@ts-ignore
+            //@ts-ignore
             processedData[key] = value;
           } else {
-               //@ts-ignore
+            //@ts-ignore
             processedData[key] = null;
           }
         }
 
         if (fieldType === 'switch') {
-             //@ts-ignore
+          //@ts-ignore
           processedData[key] = value === 'Yes';
         }
 
@@ -2014,7 +2072,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           console.log('date magaman');
           console.log(value);
 
-             //@ts-ignore
+          //@ts-ignore
           processedData[key] = new Date(value).toISOString(); // This gives you the UTC date in ISO 8601 format
         }
         if (
@@ -2023,7 +2081,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           typeof value === 'object' &&
           'value' in value
         ) {
-             //@ts-ignore
+          //@ts-ignore
           processedData[key] = value.value;
         }
       }
@@ -2208,7 +2266,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       const isFixedParent = isFixedParentField(actualField.key, fixedParents);
       const parentData = getFixedParentData(actualField.key, fixedParents);
 
-
       // Helper function for multiselect data (no useMemo)
       const getMultiselectData = () => {
         if (actualField.type !== 'multiselect') return null;
@@ -2378,6 +2435,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                   {actualField.type === 'text' && (
                     <Input
                       className="border p-2 w-full"
+                      placeholder={actualField.placeholder || 'Input'}
                       disabled={isFixedParent || actualField.disabled}
                       {...formField}
                     />
@@ -2416,7 +2474,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       }`}
                       options={multiselectData.fieldOptions || []}
                       className="basic-multi-select"
-                      placeholder="Select "
+                      placeholder={
+                        actualField.placeholder || 'Select an option...'
+                      }
                       defaultValues={
                         isFixedParent
                           ? [parentData]
@@ -2434,7 +2494,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                         }`}
                         options={multiselectStaticData.fieldOptions || []}
                         className="basic-multi-select"
-                        placeholder="Select "
+                        placeholder={
+                          actualField.placeholder || 'Select an option...'
+                        }
                         defaultValues={
                           isFixedParent
                             ? [parentData]
@@ -2460,7 +2522,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                           : [])
                       }
                       className="basic-single-select"
-                      placeholder="Select "
+                      placeholder={
+                        actualField.placeholder || 'Select an option...'
+                      }
                       disabled={isFixedParent || actualField.disabled}
                       defaultValue={
                         isFixedParent
@@ -2481,6 +2545,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                   {actualField.type === 'singleselectstatic' && (
                     <Combobox
                       key={actualField.key}
+                      id={suppliedId}
                       options={
                         dynamicOptions ||
                         (actualField.key
@@ -2495,6 +2560,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       }
                       className="basic-select"
                       disabled={isFixedParent || actualField.disabled}
+                      placeholder={
+                        actualField.placeholder || 'Select an option...'
+                      }
                       defaultValue={
                         formField.value
                           ? { value: formField.value, label: formField.value }
@@ -2503,7 +2571,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       onChange={(selected) => {
                         formField.onChange(selected);
                       }}
-                      placeholder="Select an option..."
                     />
                   )}
                   {actualField.type === 'filegallery' && (
@@ -2555,6 +2622,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                     <Input
                       type="number"
                       {...formField}
+                      placeholder={
+                        actualField.placeholder || 'Select an option...'
+                      }
                       className="border p-2 w-full bg-gray-200"
                       disabled={isFixedParent || actualField.disabled}
                       onChange={(e) =>
@@ -2565,6 +2635,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                   {actualField.type === 'textarea' && (
                     <Textarea
                       {...formField}
+                      placeholder={
+                        actualField.placeholder || 'Select an option...'
+                      }
                       className="border p-2 w-full"
                       disabled={isFixedParent || actualField.disabled}
                       onChange={(e) => formField.onChange(e.target.value)}
@@ -2735,7 +2808,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         return;
       }
       console.log(field.key);
-      console.log("Here dynamic field and key")
+      console.log('Here dynamic field and key');
       const dynamicField = syncProcessor.getDynamicField(field.key);
       console.log(dynamicField);
       const actualField: any = dynamicField || field;
@@ -2939,7 +3012,149 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                     </>
                   );
                 })()}
-              <div className="flex sticky bottom-0 w-full bg-background  justify-end pt-2 pb-2 border-t border-border">
+
+              <div className="flex sticky bottom-0 w-full bg-background justify-end gap-3 pt-2 pb-2 border-t border-border">
+                {/* Save & Continue Editing Button */}
+                <Button
+                  type="button"
+                  className="group relative px-6 py-2.5 rounded-md font-medium text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-75 disabled:hover:scale-100 disabled:hover:shadow-none"
+                  style={{
+                    background:
+                      putDetailsMutation.isPending ||
+                      postDetailMutation.isPending ||
+                      isSubmitting
+                        ? 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)'
+                        : 'linear-gradient(135deg, #10b981 0%, #059669 100%)', // Green gradient
+                    boxShadow:
+                      '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                  }}
+                  disabled={
+                    putDetailsMutation.isPending ||
+                    postDetailMutation.isPending ||
+                    isSubmitting ||
+                    !form.formState.isValid
+                  }
+                  onClick={form.handleSubmit((data) =>
+                    onSubmit(data, 'saveAndContinue')
+                  )}
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    {putDetailsMutation.isPending ||
+                    postDetailMutation.isPending ||
+                    isSubmitting ? (
+                      <svg
+                        className="w-4 h-4 animate-spin"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                    ) : (
+                      <HugeiconsIcon icon={Edit02Icon} size={`1rem`} />
+                    )}
+                    <span className="text-sm">
+                      {putDetailsMutation.isPending ||
+                      postDetailMutation.isPending ||
+                      isSubmitting
+                        ? 'Processing...'
+                        : 'Save & Continue'}
+                    </span>
+                  </div>
+
+                  {/* Shimmer effect for loading state */}
+                  {(putDetailsMutation.isPending ||
+                    postDetailMutation.isPending ||
+                    isSubmitting) && (
+                    <div
+                      className="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
+                      style={{ animation: 'shimmer 2s infinite' }}
+                    />
+                  )}
+                </Button>
+
+                {/* Save & Add New Button */}
+                <Button
+                  type="button"
+                  className="group relative px-6 py-2.5 rounded-md font-medium text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-75 disabled:hover:scale-100 disabled:hover:shadow-none"
+                  style={{
+                    background:
+                      putDetailsMutation.isPending ||
+                      postDetailMutation.isPending ||
+                      isSubmitting
+                        ? 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)'
+                        : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', // Purple gradient
+                    boxShadow:
+                      '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                  }}
+                  disabled={
+                    putDetailsMutation.isPending ||
+                    postDetailMutation.isPending ||
+                    isSubmitting ||
+                    !form.formState.isValid
+                  }
+                  onClick={form.handleSubmit((data) =>
+                    onSubmit(data, 'saveAndAddNew')
+                  )}
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    {putDetailsMutation.isPending ||
+                    postDetailMutation.isPending ||
+                    isSubmitting ? (
+                      <svg
+                        className="w-4 h-4 animate-spin"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                    ) : (
+                      <HugeiconsIcon icon={Add01Icon} size={`1rem`} />
+                    )}
+                    <span className="text-sm">
+                      {putDetailsMutation.isPending ||
+                      postDetailMutation.isPending ||
+                      isSubmitting
+                        ? 'Processing...'
+                        : 'Save & Add New'}
+                    </span>
+                  </div>
+
+                  {/* Shimmer effect for loading state */}
+                  {(putDetailsMutation.isPending ||
+                    postDetailMutation.isPending ||
+                    isSubmitting) && (
+                    <div
+                      className="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
+                      style={{ animation: 'shimmer 2s infinite' }}
+                    />
+                  )}
+                </Button>
+
+                {/* Original Submit Button */}
                 <Button
                   type="submit"
                   className="group relative px-6 py-2.5 rounded-md font-medium text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-75 disabled:hover:scale-100 disabled:hover:shadow-none"
@@ -2958,6 +3173,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                     postDetailMutation.isPending ||
                     isSubmitting
                   }
+                       onClick={form.handleSubmit((data) =>
+                    onSubmit(data, 'submit')
+                  )}
                 >
                   <div className="flex items-center justify-center space-x-2">
                     {putDetailsMutation.isPending ||
