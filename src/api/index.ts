@@ -14,7 +14,10 @@ export const crAxios = axios.create({
 
 // Add request interceptor to log actual URLs being called
 crAxios.interceptors.request.use((request:any) => {
-  console.log('Making request to:', request.url);
-  console.log('Full URL:', `${request.baseURL}${request.url}`);
+  // Add trailing slash if it doesn't exist and it's not the base URL
+  if (request.url && !request.url.endsWith('/') && !request.url.includes('?')) {
+    request.url = request.url + '/';
+  }
+  console.log('Final request URL:', `${request.baseURL}${request.url}`);
   return request;
 });
