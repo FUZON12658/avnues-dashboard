@@ -32,3 +32,8 @@ export const deleteAuthenticator = async(id:string) => {
   const { data } = await crAxios.delete(`/api/v1/authenticator/${id}`);
   return data;
 };
+
+export const getSidebarApi = async() => {
+  const { data } = await crAxios.get(`/api/v1/sidebar/`);
+  return data;
+}

@@ -1,9 +1,9 @@
-'use client';
-import { crAxios } from '@/api';
-import FileUploader from '@/components/ui/fileuploader';
-import JsonFormField from '@/components/ui/json-form-field';
-import CustomJodit from '@/components/common/CustomJodit';
-import { Button } from '@/components/ui/button';
+"use client";
+import { crAxios } from "@/api";
+import FileUploader from "@/components/ui/fileuploader";
+import JsonFormField from "@/components/ui/json-form-field";
+import CustomJodit from "@/components/common/CustomJodit";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -11,29 +11,29 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { capitalizeFirstLetter, formatDateInNepaliTimezone } from '@/lib/utils';
-import { zodResolver } from '@hookform/resolvers/zod';
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { capitalizeFirstLetter, formatDateInNepaliTimezone } from "@/lib/utils";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   QueryClient,
   useMutation,
   useQueries,
   useQuery,
-} from '@tanstack/react-query';
-import { X } from 'lucide-react';
-import { useParams, usePathname, useRouter } from 'next/navigation';
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import Select from 'react-select';
-import { toast } from 'sonner';
-import { z } from 'zod';
-import { BodyText, Heading } from '@/components/common/typography';
-import { uploadImageApi } from '@/api/uploadImage';
-import MultiSelect from '@/components/ui/multi-select';
-import Combobox from '@/components/ui/dropdown-menu';
+} from "@tanstack/react-query";
+import { X } from "lucide-react";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import React from "react";
+import { useForm } from "react-hook-form";
+import Select from "react-select";
+import { toast } from "sonner";
+import { z } from "zod";
+import { BodyText, Heading } from "@/components/common/typography";
+import { uploadImageApi } from "@/api/uploadImage";
+import MultiSelect from "@/components/ui/multi-select";
+import Combobox from "@/components/ui/dropdown-menu";
 import {
   CustomAccordion,
   CustomAccordionItem,
@@ -43,14 +43,20 @@ import {
   CustomTabsList,
   CustomTabsTrigger,
   CustomTabsContent,
-} from '@/components/ui/custom-tab';
-import { HugeiconsIcon } from '@hugeicons/react';
-import { Add01Icon, Edit02Icon, SentIcon } from '@hugeicons/core-free-icons';
-import { EnhancedFileUploader } from '@/components/filemanager/file-picker-modal';
+} from "@/components/ui/custom-tab";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Add01Icon,
+  Edit02Icon,
+  SentIcon,
+  ViewIcon,
+  ViewOffIcon,
+} from "@hugeicons/core-free-icons";
+import { EnhancedFileUploader } from "@/components/filemanager/file-picker-modal";
 import {
   useDeepCompareEffect,
   useDeepCompareMemo,
-} from '@/hooks/deepCompareMemo';
+} from "@/hooks/deepCompareMemo";
 
 interface NestedFieldConfig {
   key: string;
@@ -68,7 +74,7 @@ interface NestedFieldConfig {
   isNested?: boolean;
   parentPath?: string;
   nestingLevel?: number;
-  containerType?: 'object' | 'array';
+  containerType?: "object" | "array";
   arrayConfig?: {
     minItems?: number;
     maxItems?: number;
@@ -80,7 +86,7 @@ interface NestedFieldConfig {
 interface SyncConfig {
   dependentOn?: string | string[]; // Field key(s) this field depends on
   followedBy?: string | string[]; // Field key(s) that follow this field
-  dependencyType: 'restriction' | 'value_update' | 'dynamicFieldGen';
+  dependencyType: "restriction" | "value_update" | "dynamicFieldGen";
   valueMaps?: {
     [key: string]: any; // Maps dependent field values to actions
   };
@@ -118,11 +124,11 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
   // Helper function to extract value from form field
   const extractValue = (rawValue: any) => {
     if (rawValue === null || rawValue === undefined) return null;
-    console.log('raw value here:');
+    console.log("raw value here:");
     console.log(rawValue);
-    console.log('raw value ended');
+    console.log("raw value ended");
     // Handle object with value property (like from select components)
-    if (typeof rawValue === 'object' && rawValue.value !== undefined) {
+    if (typeof rawValue === "object" && rawValue.value !== undefined) {
       return rawValue.value;
     }
 
@@ -132,7 +138,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
   // Helper function to flatten nested fields and create a comprehensive field map
   const createFieldMap = (
     fields: any[],
-    parentPath: string = ''
+    parentPath: string = ""
   ): Map<string, any> => {
     const fieldMap = new Map<string, FormFieldWithSync>();
 
@@ -159,7 +165,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
 
   // Helper function to get nested value from form values using dot notation
   const getNestedValue = (obj: any, path: string): any => {
-    const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.');
+    const parts = path.replace(/\[(\d+)\]/g, ".$1").split(".");
     return parts.reduce((acc, part) => (acc ? acc[part] : undefined), obj);
   };
 
@@ -167,11 +173,11 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
   const findFieldPaths = (
     obj: any,
     targetKey: string,
-    currentPath: string = ''
+    currentPath: string = ""
   ): string[] => {
     const paths: string[] = [];
 
-    if (!obj || typeof obj !== 'object') return paths;
+    if (!obj || typeof obj !== "object") return paths;
 
     Object.keys(obj).forEach((key) => {
       const fullPath = currentPath ? `${currentPath}.${key}` : key;
@@ -184,7 +190,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
           const arrayItemPath = `${fullPath}[${index}]`;
           paths.push(...findFieldPaths(item, targetKey, arrayItemPath));
         });
-      } else if (typeof obj[key] === 'object') {
+      } else if (typeof obj[key] === "object") {
         paths.push(...findFieldPaths(obj[key], targetKey, fullPath));
       }
     });
@@ -195,8 +201,8 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
   // Helper function to get field key variants for lookup
   const getFieldKeyVariants = (fieldKey: string) => {
     const variants = [fieldKey];
-    if (fieldKey.includes('.')) {
-      variants.push(fieldKey.split('.').pop()!);
+    if (fieldKey.includes(".")) {
+      variants.push(fieldKey.split(".").pop()!);
     }
     return variants;
   };
@@ -207,19 +213,19 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
     fieldKey: string
   ): string => {
     if (fieldPath === fieldKey) {
-      return ''; // No parent context for simple keys
+      return ""; // No parent context for simple keys
     }
     // Remove the field key from the end to get parent context
     const regex = new RegExp(
-      `[\\.\\[]${fieldKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]?$`
+      `[\\.\\[]${fieldKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]?$`
     );
-    return fieldPath.replace(regex, '');
+    return fieldPath.replace(regex, "");
   };
 
   // Memoize the processing to prevent unnecessary re-calculations
   const processedData = useDeepCompareMemo(() => {
-    console.log('🔄 Processing sync effects...');
-    console.log('📝 Form values:', formValues);
+    console.log("🔄 Processing sync effects...");
+    console.log("📝 Form values:", formValues);
 
     const fieldMap = createFieldMap(fields);
     const newVisibleFields = new Set<string>();
@@ -290,7 +296,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
               );
               console.log(`processing dependent value: ${dependentValue}`);
               switch (sync.dependencyType) {
-                case 'restriction':
+                case "restriction":
                   if (valueMap.show?.includes(field.key)) {
                     newVisibleFields.add(fieldPath);
                     newVisibleFields.add(field.key);
@@ -301,7 +307,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                   // }
                   break;
 
-                case 'value_update':
+                case "value_update":
                   newVisibleFields.add(fieldPath);
                   newVisibleFields.add(field.key);
 
@@ -350,7 +356,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                   }
                   break;
 
-                case 'dynamicFieldGen':
+                case "dynamicFieldGen":
                   console.log(`🏗️ Dynamic field gen for: ${fieldPath}`);
                   if (valueMap.generateField) {
                     const dynamicField = {
@@ -367,11 +373,11 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                       ? `${parentContext}.${dynamicField.key}`
                       : dynamicField.key;
                     console.log(dynamicFieldPath);
-                    console.log('Bryangaman here');
+                    console.log("Bryangaman here");
                     // Also add the base path without array indices for general visibility
                     const baseParentContext = parentContext.replace(
                       /\[\d+\]/g,
-                      ''
+                      ""
                     );
                     const baseDynamicFieldPath = baseParentContext
                       ? `${baseParentContext}.${dynamicField.key}`
@@ -402,7 +408,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
 
                     const baseParentContext = parentContext.replace(
                       /\[\d+\]/g,
-                      ''
+                      ""
                     );
                     const baseDynamicFieldPath = baseParentContext
                       ? `${baseParentContext}.${field.key}`
@@ -424,7 +430,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
               }
             } else {
               // Handle case when dependent value is empty or not found
-              if (sync.dependencyType === 'value_update') {
+              if (sync.dependencyType === "value_update") {
                 newVisibleFields.add(fieldPath);
                 newVisibleFields.add(field.key);
                 // Clear options and API config when no dependent value
@@ -435,7 +441,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                 console.log(
                   `🧹 Cleared options and API config for ${fieldPath} (no dependent value)`
                 );
-              } else if (sync.dependencyType === 'dynamicFieldGen') {
+              } else if (sync.dependencyType === "dynamicFieldGen") {
                 // DON'T automatically remove dynamic fields when no dependent value
                 // Only remove if the field was previously generated and now shouldn't be
                 // This requires tracking the previous state or being more selective
@@ -476,7 +482,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
             currentValue
           );
           console.log(currentValue);
-          console.log('current value just before current value');
+          console.log("current value just before current value");
           let currentVal = Array.isArray(currentValue)
             ? currentValue
             : [currentValue];
@@ -484,9 +490,9 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
             if (currentValue && sync.valueMaps?.[currentValue]) {
               console.log(`processing current value: ${currentValue}`);
               const valueMap = sync.valueMaps[currentValue];
-              console.log('current value just before current value 2');
+              console.log("current value just before current value 2");
               switch (sync.dependencyType) {
-                case 'restriction':
+                case "restriction":
                   valueMap.show?.forEach((key: string) => {
                     // Find the correct context for the controlled field
                     const parentContext = getParentPathContext(
@@ -514,7 +520,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                   // });
                   break;
 
-                case 'value_update':
+                case "value_update":
                   followedKeys.forEach((followedKey: any) => {
                     // Find the correct path for the followed field in the same context
                     const parentContext = getParentPathContext(
@@ -574,7 +580,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                   });
                   break;
 
-                case 'dynamicFieldGen':
+                case "dynamicFieldGen":
                   followedKeys.forEach((followedKey: any) => {
                     if (valueMap.generateField) {
                       const dynamicField = {
@@ -592,7 +598,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                       // Also add the base path without array indices
                       const baseParentContext = parentContext.replace(
                         /\[\d+\]/g,
-                        ''
+                        ""
                       );
                       const baseDynamicFieldPath = baseParentContext
                         ? `${baseParentContext}.${dynamicField.key}`
@@ -621,7 +627,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
 
                       const baseParentContext = parentContext.replace(
                         /\[\d+\]/g,
-                        ''
+                        ""
                       );
                       const baseDynamicFieldPath = baseParentContext
                         ? `${baseParentContext}.${followedKey}`
@@ -644,7 +650,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
               }
             } else {
               // Clear options/fields for controlled fields when parent has no value
-              if (sync.dependencyType === 'value_update') {
+              if (sync.dependencyType === "value_update") {
                 followedKeys.forEach((followedKey: any) => {
                   const parentContext = getParentPathContext(
                     currentFieldPath,
@@ -665,7 +671,7 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                     `🧹 Cleared options and API config for controlled field ${followedFieldPath} (no parent value)`
                   );
                 });
-              } else if (sync.dependencyType === 'dynamicFieldGen') {
+              } else if (sync.dependencyType === "dynamicFieldGen") {
                 followedKeys.forEach((followedKey: any) => {
                   const parentContext = getParentPathContext(
                     currentFieldPath,
@@ -673,17 +679,17 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
                   );
                   const baseParentContext = parentContext.replace(
                     /\[\d+\]/g,
-                    ''
+                    ""
                   );
 
                   // Clean up any dynamic fields that might have been generated
                   newDynamicFields.forEach((dynamicField, path) => {
                     const pathContext = parentContext
                       ? `${parentContext}.`
-                      : '';
+                      : "";
                     const basePathContext = baseParentContext
                       ? `${baseParentContext}.`
-                      : '';
+                      : "";
 
                     if (
                       (path.startsWith(pathContext) ||
@@ -717,11 +723,11 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
       }
     });
 
-    console.log('🔍 Final processing results:');
-    console.log('👁️ Visible fields:', Array.from(newVisibleFields));
-    console.log('🎭 Dynamic fields:', Array.from(newDynamicFields.keys()));
-    console.log('🎛️ Field options:', Array.from(newFieldOptions.keys()));
-    console.log('🌐 Field API configs:', Array.from(newFieldApiConfig.keys()));
+    console.log("🔍 Final processing results:");
+    console.log("👁️ Visible fields:", Array.from(newVisibleFields));
+    console.log("🎭 Dynamic fields:", Array.from(newDynamicFields.keys()));
+    console.log("🎛️ Field options:", Array.from(newFieldOptions.keys()));
+    console.log("🌐 Field API configs:", Array.from(newFieldApiConfig.keys()));
 
     return {
       visibleFields: newVisibleFields,
@@ -791,9 +797,9 @@ const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
 };
 
 const isImageFile = (fileNameOrUrl?: string) => {
-  if (!fileNameOrUrl || typeof fileNameOrUrl !== 'string') return false; // Ensure it's a valid string
+  if (!fileNameOrUrl || typeof fileNameOrUrl !== "string") return false; // Ensure it's a valid string
 
-  const imageExtensions = ['png', 'jpg', 'jpeg', 'webp', 'svg'];
+  const imageExtensions = ["png", "jpg", "jpeg", "webp", "svg"];
 
   try {
     const url = new URL(fileNameOrUrl); // Check if it's a valid URL
@@ -801,16 +807,16 @@ const isImageFile = (fileNameOrUrl?: string) => {
     return imageExtensions.some((ext) => decodedPath.endsWith(`.${ext}`));
   } catch (e) {
     // Not a valid URL, treat it as a filename
-    const fileExtension = fileNameOrUrl.split('.').pop()?.toLowerCase();
+    const fileExtension = fileNameOrUrl.split(".").pop()?.toLowerCase();
     return fileExtension ? imageExtensions.includes(fileExtension) : false;
   }
 };
 
 function formatTitle(title: string) {
   return title
-    .split('-')
+    .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+    .join(" ");
 }
 
 const getValidationSchema = (fields: any) => {
@@ -831,7 +837,7 @@ const getValidationSchema = (fields: any) => {
     }) => {
       let fieldSchema;
       switch (type) {
-        case 'text':
+        case "text":
           if (allowAny) {
             fieldSchema = z.any();
             break;
@@ -840,7 +846,7 @@ const getValidationSchema = (fields: any) => {
           if (required)
             fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
-        case 'jsonArray':
+        case "jsonArray":
           fieldSchema = z
             .array(
               z.object({}).passthrough() // Allow any keys in the object
@@ -852,40 +858,40 @@ const getValidationSchema = (fields: any) => {
               .min(1, `At least one ${label} item is required`);
           }
           break;
-        case 'htmlfield':
+        case "htmlfield":
           fieldSchema = z.string();
           if (required)
             fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
-        case 'file':
+        case "file":
           fieldSchema = z.any(); // `File` instance validation may fail in some environments
           break;
-        case 'filegallery':
+        case "filegallery":
           fieldSchema = z.any(); // `File` instance validation may fail in some environments
           break;
-        case 'switch':
+        case "switch":
           fieldSchema = z.string().optional();
           break;
-        case 'number':
+        case "number":
           fieldSchema = z.number();
           if (required)
             fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
-        case 'multiselect':
+        case "multiselect":
           fieldSchema = z.any();
           break;
-        case 'singleselectstatic':
+        case "singleselectstatic":
           fieldSchema = z.any();
           break;
-        case 'singleselect':
+        case "singleselect":
           fieldSchema = z.any();
           break;
-        case 'time':
+        case "time":
           fieldSchema = z.string();
           if (required)
             fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
-        case 'date':
+        case "date":
           fieldSchema = z.string();
           if (required)
             fieldSchema = fieldSchema.min(1, `${label} is required`);
@@ -925,10 +931,11 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   fixedParents,
   formDataSupplied,
 }) => {
-  const [submitFormState, setSubmitFormState] = React.useState('submit');
+  const [submitFormState, setSubmitFormState] = React.useState("submit");
   const router = useRouter();
   const { slug } = useParams();
   const pathname = usePathname();
+  const [showPassword, setShowPassword] = React.useState(false);
   const [files, setFiles] = React.useState<Record<string, File[]>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [formReady, setFormReady] = React.useState({});
@@ -963,13 +970,13 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     let processedLink = link;
 
     if (item !== null && item.id !== undefined) {
-      processedLink = processedLink.replace('{id}', item.id.toString());
+      processedLink = processedLink.replace("{id}", item.id.toString());
     } else if (suppliedId !== null && suppliedId !== undefined) {
-      processedLink = processedLink.replace('{id}', suppliedId.toString());
+      processedLink = processedLink.replace("{id}", suppliedId.toString());
     }
 
     if (slug !== undefined) {
-      processedLink = processedLink.replace('{slug}', slug.toString());
+      processedLink = processedLink.replace("{slug}", slug.toString());
     }
 
     return processedLink;
@@ -1042,7 +1049,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   const getDetailsApi = async (
     limit: number = 1,
     offset: number = 0,
-    sortOrder: 'ASC' | 'DESC' = 'DESC'
+    sortOrder: "ASC" | "DESC" = "DESC"
   ) => {
     const response = await crAxios.get(`/api/v1/${slug}`, {
       params: { limit, offset, sort: sortOrder },
@@ -1060,25 +1067,25 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         queryKey: [`${slug}-view`],
       });
       setIsSubmitting(false);
-      if (!pathname.includes('edit') && submitFormState === 'saveAndContinue') {
+      if (!pathname.includes("edit") && submitFormState === "saveAndContinue") {
         router.push(`/admin/dashboard/${slug}/edit/${data.mainData.id}`);
       }
-      if (pathname.includes('edit') && submitFormState === 'saveAndAddNew') {
+      if (pathname.includes("edit") && submitFormState === "saveAndAddNew") {
         router.push(`/admin/dashboard/${slug}/add-new`);
       }
       if (
-        pathname.includes('/add-new') &&
-        submitFormState === 'saveAndAddNew'
+        pathname.includes("/add-new") &&
+        submitFormState === "saveAndAddNew"
       ) {
         window.location.reload();
       }
       if (
-        pathname.includes('/add-new') &&
-        submitFormState === 'saveAndContinue'
+        pathname.includes("/add-new") &&
+        submitFormState === "saveAndContinue"
       ) {
         router.push(`/admin/dashboard/${slug}/edit/${data.mainData.id}`);
       }
-      if (submitFormState === 'submit') {
+      if (submitFormState === "submit") {
         router.push(`/admin/dashboard/${slug}`);
       }
     },
@@ -1094,25 +1101,22 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         queryKey: [`${slug}-view`],
       });
       setIsSubmitting(false);
-      if (!pathname.includes('edit') && submitFormState === 'saveAndContinue') {
+      if (!pathname.includes("edit") && submitFormState === "saveAndContinue") {
         router.push(`/admin/dashboard/${slug}/edit/${data.mainData.id}`);
       }
-      if (pathname.includes('edit') && submitFormState === 'saveAndAddNew') {
+      if (pathname.includes("edit") && submitFormState === "saveAndAddNew") {
         router.push(`/admin/dashboard/${slug}/add-new`);
       }
-      if (
-        pathname.includes('add-new') &&
-        submitFormState === 'saveAndAddNew'
-      ) {
+      if (pathname.includes("add-new") && submitFormState === "saveAndAddNew") {
         window.location.reload();
       }
       if (
-        pathname.includes('add-new') &&
-        submitFormState === 'saveAndContinue'
+        pathname.includes("add-new") &&
+        submitFormState === "saveAndContinue"
       ) {
         router.push(`/admin/dashboard/${slug}/edit/${data.mainData.id}`);
       }
-      if (submitFormState === 'submit') {
+      if (submitFormState === "submit") {
         router.push(`/admin/dashboard/${slug}`);
       }
     },
@@ -1134,7 +1138,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     refetch: viewDataRefetch,
   } = useQuery({
     queryKey: [`${slug}-view`],
-    queryFn: () => getDetailsApi(1, 0, 'DESC'),
+    queryFn: () => getDetailsApi(1, 0, "DESC"),
   });
 
   const [multiSelectData, setMultiSelectData] = React.useState({});
@@ -1181,11 +1185,11 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       const newDefaultValues = viewData.displayModel.formFields.reduce(
         //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
         (acc, { key, type, populatedKey }) => {
-          if (type === 'switch') {
-            acc[key] = formDataSupplied?.[key] ? 'Yes' : 'No';
-          } else if (type === 'number') {
+          if (type === "switch") {
+            acc[key] = formDataSupplied?.[key] ? "Yes" : "No";
+          } else if (type === "number") {
             acc[key] = formDataSupplied?.[key] ?? 0;
-          } else if (type === 'multiselect') {
+          } else if (type === "multiselect") {
             const value = formDataSupplied?.[key]
               ? formDataSupplied?.[populatedKey]
                 ? formDataSupplied?.[populatedKey]
@@ -1194,13 +1198,13 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
             // Simply assign the raw value without formatting
             acc[key] = value;
-          } else if (type === 'singleselect') {
+          } else if (type === "singleselect") {
             acc[key] = formDataSupplied?.[key]
               ? formDataSupplied?.[populatedKey]
                 ? formDataSupplied?.[populatedKey]
                 : formDataSupplied?.[key]
               : null;
-          } else if (type === 'file') {
+          } else if (type === "file") {
             // For file fields, use populatedKey if available, otherwise fall back to key
             const dataKey = populatedKey || key;
             acc[key] = formDataSupplied?.[dataKey] || null;
@@ -1208,7 +1212,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               `File field ${key}: using ${dataKey}, value:`,
               acc[key]
             );
-          } else if (type === 'filegallery') {
+          } else if (type === "filegallery") {
             acc[key] = formDataSupplied?.[key] ?? null;
 
             // Set files for this specific key
@@ -1225,34 +1229,34 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                     })
                   : [],
             }));
-          } else if (type === 'singleselectstatic') {
+          } else if (type === "singleselectstatic") {
             console.log(key);
-            console.log('Here single select static key');
+            console.log("Here single select static key");
             const value = formDataSupplied?.[key];
             acc[key] = value;
-          } else if (type === 'multiselectstatic') {
+          } else if (type === "multiselectstatic") {
             console.log(key);
-            console.log('Here single select static key');
+            console.log("Here single select static key");
             const value = formDataSupplied?.[key];
             acc[key] = value;
-          } else if (type === 'time') {
-            acc[key] = formDataSupplied?.[key] ?? '';
-          } else if (type === 'date') {
+          } else if (type === "time") {
+            acc[key] = formDataSupplied?.[key] ?? "";
+          } else if (type === "date") {
             const dateValue = formDataSupplied?.[key];
             acc[key] = dateValue
-              ? new Date(dateValue).toISOString().split('T')[0]
-              : '';
+              ? new Date(dateValue).toISOString().split("T")[0]
+              : "";
           } else {
             console.log(key);
 
-            acc[key] = formDataSupplied?.[key] ?? '';
+            acc[key] = formDataSupplied?.[key] ?? "";
           }
           return acc;
         },
         {}
       );
       console.log(newDefaultValues);
-      console.log('New default values');
+      console.log("New default values");
       form.reset(newDefaultValues); // ✅ Dynamically update form values
       if (newDefaultValues) {
         setFormReady(newDefaultValues);
@@ -1268,7 +1272,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       fields.forEach((field) => {
         // Check current field
         if (
-          (field.type === 'multiselect' || field.type === 'singleselect') &&
+          (field.type === "multiselect" || field.type === "singleselect") &&
           (field.dataRoute ||
             (field.sync && field.sync.dynamicAPI) ||
             syncProcessor.getFieldApiConfig(field.key)) && // Add API config check
@@ -1295,7 +1299,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     stableDynamicFields.forEach((field, key) => {
       const apiConfig = syncProcessor.getFieldApiConfig(key);
       if (
-        (field.type === 'multiselect' || field.type === 'singleselect') &&
+        (field.type === "multiselect" || field.type === "singleselect") &&
         (field.dataRoute ||
           (field.sync && field.sync.dynamicAPI) ||
           apiConfig) && // Include fields with API config
@@ -1315,9 +1319,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       }
     });
 
-    console.log('🔄 MultiSelect fields updated:');
-    console.log('📋 Static fields:', staticFields.length);
-    console.log('✨ Dynamic fields:', dynamicMultiSelectFields.length);
+    console.log("🔄 MultiSelect fields updated:");
+    console.log("📋 Static fields:", staticFields.length);
+    console.log("✨ Dynamic fields:", dynamicMultiSelectFields.length);
 
     return [...staticFields, ...dynamicMultiSelectFields];
   }, [viewData, stableDynamicFields, visibleFields, syncProcessor]);
@@ -1332,14 +1336,14 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         fields.forEach((field) => {
           // Handle singleselectstatic fields
           if (
-            field.type === 'singleselectstatic' &&
+            field.type === "singleselectstatic" &&
             Array.isArray(field.values)
           ) {
             //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
             staticOptions[field.key] = field.values
               .filter(
                 (value: any) =>
-                  !(value.editModeParam && !pathname.includes('edit'))
+                  !(value.editModeParam && !pathname.includes("edit"))
               )
               .map((value: any) =>
                 value.value
@@ -1349,7 +1353,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           }
 
           // Handle static multiselect options provided directly in formFields
-          if (field.type === 'multiselect' && Array.isArray(field.options)) {
+          if (field.type === "multiselect" && Array.isArray(field.options)) {
             //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
             staticOptions[field.key] = field.options;
 
@@ -1381,21 +1385,21 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
       const labelParts = dataToShow.map((field) => {
         // Check if the field is nested
-        if (field.includes('.')) {
+        if (field.includes(".")) {
           return renderNestedValue(item, field);
         }
-        if (field === 'date') {
+        if (field === "date") {
           return formatDateInNepaliTimezone(item[field], false);
         }
         // Otherwise, access it directly
-        return item[field] ?? '—';
+        return item[field] ?? "—";
       });
 
-      const label = labelParts.join(' : ');
+      const label = labelParts.join(" : ");
 
       return {
         value: item.id,
-        label: label || 'Untitled', // Fallback if no fields are available
+        label: label || "Untitled", // Fallback if no fields are available
       };
     });
   }, []);
@@ -1403,15 +1407,15 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   // Helper function to handle nested paths
   //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
   const renderNestedValue = (obj, key) => {
-    if (!obj) return '—';
+    if (!obj) return "—";
 
     // Handle nested paths like 'user.fullName' or 'group.groupName'
-    const parts = key.split('.');
+    const parts = key.split(".");
     let value = obj;
 
     for (const part of parts) {
       value = value[part];
-      if (value === undefined || value === null) return '—';
+      if (value === undefined || value === null) return "—";
     }
 
     return value;
@@ -1448,8 +1452,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         (option) => fieldValueIds === option.value
       );
 
-      console.log('Field Value IDs:', fieldValueIds);
-      console.log('Matching Values:', matchingValues);
+      console.log("Field Value IDs:", fieldValueIds);
+      console.log("Matching Values:", matchingValues);
 
       return matchingValues[0];
     },
@@ -1468,7 +1472,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
   const handleDataUpdate = React.useCallback(
     (key: any, transformedData: any) => {
-      console.log('🔄 Data update triggered for:', key);
+      console.log("🔄 Data update triggered for:", key);
       setMultiSelectData((prev) => {
         const newData = {
           ...prev,
@@ -1479,7 +1483,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         const currentFieldKeys = multiSelectFields.map((f) => f.key);
         Object.keys(newData).forEach((dataKey) => {
           if (!currentFieldKeys.includes(dataKey)) {
-            console.log('🧹 Cleaning up data for removed field:', dataKey);
+            console.log("🧹 Cleaning up data for removed field:", dataKey);
             //@ts-ignore
             delete newData[dataKey];
           }
@@ -1517,9 +1521,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   const handleDataUpdateWithValidation = React.useCallback(
     (key: string, transformedData: any[], originalFieldKey: string) => {
       console.log(
-        '🔄 Data update with validation for:',
+        "🔄 Data update with validation for:",
         key,
-        'original field:',
+        "original field:",
         originalFieldKey
       );
 
@@ -1554,14 +1558,14 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
         Object.keys(newData).forEach((dataKey) => {
           if (!allValidKeys.includes(dataKey)) {
-            console.log('🧹 Cleaning up data for removed field:', dataKey);
+            console.log("🧹 Cleaning up data for removed field:", dataKey);
             //@ts-ignore
             delete newData[dataKey];
           }
         });
 
         // Log the update for debugging
-        console.log('📊 MultiSelect data updated:', {
+        console.log("📊 MultiSelect data updated:", {
           key,
           dataLength: transformedData.length,
           totalKeys: Object.keys(newData).length,
@@ -1577,7 +1581,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     if (!viewData || !multiSelectFields.length) return [];
 
     console.log(
-      '🔄 Rebuilding queries config for fields:',
+      "🔄 Rebuilding queries config for fields:",
       multiSelectFields.map((f) => f.key)
     );
 
@@ -1606,7 +1610,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           }
 
           const dependentValue =
-            typeof dependentFieldValue === 'object' &&
+            typeof dependentFieldValue === "object" &&
             dependentFieldValue?.value
               ? dependentFieldValue.value
               : dependentFieldValue;
@@ -1626,9 +1630,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             `${slug}-${key}-data`,
             dependentValue,
             JSON.stringify(dynamicConfig.filterParams || {}),
-            'dynamic-field',
+            "dynamic-field",
             // Add API config to query key to invalidate when it changes
-            apiConfig ? JSON.stringify(apiConfig) : 'no-api-config',
+            apiConfig ? JSON.stringify(apiConfig) : "no-api-config",
           ];
 
           return {
@@ -1660,7 +1664,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               console.log(
                 `✅ Dynamic data loaded for ${key}:`,
                 data.mainData?.length || 0,
-                'items'
+                "items"
               );
               const transformedData = transformQueryData(
                 data.mainData,
@@ -1688,13 +1692,13 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           const apiConfigQueryKey = [
             `${slug}-${key}-data-api-config`,
             JSON.stringify(apiConfig), // Include full API config in key
-            visibleFields.has(key) ? 'visible' : 'hidden',
+            visibleFields.has(key) ? "visible" : "hidden",
           ];
 
           return {
             queryKey: apiConfigQueryKey,
             queryFn: async () => {
-              console.log('🌐 Fetching API config data from:', finalDataRoute);
+              console.log("🌐 Fetching API config data from:", finalDataRoute);
               return getDataFromRoute(processLink(finalDataRoute, null));
             },
             enabled: !!(viewData && finalDataRoute && visibleFields.has(key)),
@@ -1707,7 +1711,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               console.log(
                 `✅ API config data loaded for ${key}:`,
                 data.mainData?.length || 0,
-                'items'
+                "items"
               );
               const transformedData = transformQueryData(
                 data.mainData,
@@ -1732,7 +1736,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         return {
           queryKey: [`${slug}-${key}-data`],
           queryFn: async () => {
-            console.log('🌐 Fetching static data from:', finalDataRoute);
+            console.log("🌐 Fetching static data from:", finalDataRoute);
             return getDataFromRoute(processLink(finalDataRoute, null));
           },
           enabled: !!(viewData && finalDataRoute && visibleFields.has(key)),
@@ -1742,7 +1746,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             console.log(
               `✅ Static data loaded for ${key}:`,
               data.mainData?.length || 0,
-              'items'
+              "items"
             );
             const transformedData = transformQueryData(
               data.mainData,
@@ -1818,7 +1822,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     const failedQueries = multiSelectQueries.filter((query) => query.isError);
     if (failedQueries.length > 0) {
       console.error(
-        '❌ Failed queries:',
+        "❌ Failed queries:",
         failedQueries.map((q) => q.error)
       );
     }
@@ -1836,13 +1840,13 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     const apiConfigKeys = Array.from(syncProcessor.fieldApiConfig.keys());
 
     if (apiConfigKeys.length > 0) {
-      console.log('🔄 API config changed, invalidating related queries');
+      console.log("🔄 API config changed, invalidating related queries");
 
       apiConfigKeys.forEach((fieldKey) => {
         queryClient.invalidateQueries({
           predicate: (query) => {
             return query.queryKey.some(
-              (key) => typeof key === 'string' && key.includes(fieldKey)
+              (key) => typeof key === "string" && key.includes(fieldKey)
             );
           },
         });
@@ -1865,7 +1869,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       currentResult: any
     ) => {
       if (field.children && field.children.length > 0) {
-        if (field.containerType === 'array') {
+        if (field.containerType === "array") {
           // Handle array fields
           const arrayData = [];
           let index = 0;
@@ -1933,8 +1937,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     Object.keys(formData).forEach((key) => {
       //@ts-ignore
       if (
-        !key.includes('.') &&
-        !key.includes('[') &&
+        !key.includes(".") &&
+        !key.includes("[") &&
         //@ts-ignore
         result[key] === undefined
       ) {
@@ -1970,20 +1974,20 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
         // Handle file uploads
         if (
-          fieldType === 'file' &&
-          typeof value === 'object' &&
+          fieldType === "file" &&
+          typeof value === "object" &&
           value !== null
         ) {
           //@ts-ignore
           processedData[key] = value.id;
         }
 
-        if (fieldType === 'scorecard') {
+        if (fieldType === "scorecard") {
           //@ts-ignore
           delete processedData[key];
         }
 
-        if (fieldType === 'jsonArray' && Array.isArray(value)) {
+        if (fieldType === "jsonArray" && Array.isArray(value)) {
           //@ts-ignore
           processedData[key] = await Promise.all(
             value.map(async (item) => {
@@ -1999,7 +2003,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             })
           );
         }
-        if (fieldType === 'filegallery') {
+        if (fieldType === "filegallery") {
           const currentFiles = files[key]; // Get files for this specific key
           if (!currentFiles || currentFiles.length === 0) return;
 
@@ -2007,7 +2011,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           if (Array.isArray(currentFiles)) {
             valuesArray = currentFiles;
           } else {
-            throw new Error('Invalid value type for filegallery');
+            throw new Error("Invalid value type for filegallery");
           }
 
           const uploadedUrls = await Promise.all(
@@ -2026,7 +2030,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         }
         // Handle multiselect fields
         if (
-          fieldType === 'multiselect' &&
+          fieldType === "multiselect" &&
           Array.isArray(value) &&
           value.length > 0 &&
           (value[0]?.value || value[0]?.id)
@@ -2042,16 +2046,16 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           // Extract just the value from each selected option
         }
         if (
-          fieldType === 'singleselect' &&
+          fieldType === "singleselect" &&
           value &&
-          typeof value === 'object' &&
-          'id' in value
+          typeof value === "object" &&
+          "id" in value
         ) {
           //@ts-ignore
           processedData[key] = value.id;
         }
-        if (fieldType === 'singleselect') {
-          if (value && typeof value === 'object' && 'value' in value) {
+        if (fieldType === "singleselect") {
+          if (value && typeof value === "object" && "value" in value) {
             //@ts-ignore
             processedData[key] = value.value;
           } else if (value) {
@@ -2063,30 +2067,30 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           }
         }
 
-        if (fieldType === 'switch') {
+        if (fieldType === "switch") {
           //@ts-ignore
-          processedData[key] = value === 'Yes';
+          processedData[key] = value === "Yes";
         }
 
-        if (fieldType === 'date' && typeof value === 'string') {
-          console.log('date magaman');
+        if (fieldType === "date" && typeof value === "string") {
+          console.log("date magaman");
           console.log(value);
 
           //@ts-ignore
           processedData[key] = new Date(value).toISOString(); // This gives you the UTC date in ISO 8601 format
         }
         if (
-          fieldType === 'singleselectstatic' &&
+          fieldType === "singleselectstatic" &&
           value &&
-          typeof value === 'object' &&
-          'value' in value
+          typeof value === "object" &&
+          "value" in value
         ) {
           //@ts-ignore
           processedData[key] = value.value;
         }
       }
 
-      console.log('final Data here');
+      console.log("final Data here");
       console.log(processedData);
       if (formDataSupplied) {
         await putDetailsMutation.mutateAsync(processedData);
@@ -2103,8 +2107,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       }
     } catch (error) {
       setIsSubmitting(false);
-      console.error('Form submission error:', error);
-      toast.error('An error occurred when saving the data');
+      console.error("Form submission error:", error);
+      toast.error("An error occurred when saving the data");
     }
   };
 
@@ -2175,7 +2179,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       if (
         field.sync &&
         !syncProcessor.isFieldVisible(field.key) &&
-        !syncProcessor.isFieldVisible(field.key.split('.').pop()!)
+        !syncProcessor.isFieldVisible(field.key.split(".").pop()!)
       ) {
         console.log(`❌ Field ${field.key} is not visible, skipping render`);
         return null;
@@ -2186,12 +2190,12 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       // Get dynamic options
       const syncOptions =
         syncProcessor.getFieldOptions(field.key) ||
-        syncProcessor.getFieldOptions(field.key.split('.').pop()!);
+        syncProcessor.getFieldOptions(field.key.split(".").pop()!);
 
       // Get API config
       const apiConfig =
         syncProcessor.getFieldApiConfig(field.key) ||
-        syncProcessor.getFieldApiConfig(field.key.split('.').pop()!);
+        syncProcessor.getFieldApiConfig(field.key.split(".").pop()!);
 
       // FIX: Improved API data options retrieval with multiple fallbacks
       const getApiDataOptions = () => {
@@ -2199,9 +2203,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
         const keys = [
           apiConfig.populatedKey,
-          apiConfig.populatedKey?.split('.').pop(),
+          apiConfig.populatedKey?.split(".").pop(),
           field.key,
-          field.key.split('.').pop(),
+          field.key.split(".").pop(),
         ].filter(Boolean);
 
         for (const key of keys) {
@@ -2252,7 +2256,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       if (dynamicOptions) {
         console.log(`🎯 Final options for ${field.key}:`, {
           count: dynamicOptions.length,
-          source: syncOptions ? 'sync' : 'api',
+          source: syncOptions ? "sync" : "api",
           sample: dynamicOptions.slice(0, 3),
         });
       }
@@ -2260,7 +2264,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       // Get dynamic field configuration
       let actualField =
         syncProcessor.getDynamicField(field.key) ||
-        syncProcessor.getDynamicField(field.key.split('.').pop()!) ||
+        syncProcessor.getDynamicField(field.key.split(".").pop()!) ||
         field;
 
       const isFixedParent = isFixedParentField(actualField.key, fixedParents);
@@ -2268,7 +2272,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
       // Helper function for multiselect data (no useMemo)
       const getMultiselectData = () => {
-        if (actualField.type !== 'multiselect') return null;
+        if (actualField.type !== "multiselect") return null;
 
         const fieldOptions =
           dynamicOptions ||
@@ -2277,7 +2281,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               ? //@ts-ignore
                 multiSelectData[actualField.key] ||
                   //@ts-ignore
-                  multiSelectData[actualField.key.split('.').pop()!] ||
+                  multiSelectData[actualField.key.split(".").pop()!] ||
                   []
               : [];
           })();
@@ -2292,12 +2296,12 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           const formatValue = (value: any) => {
             if (Array.isArray(value)) {
               return value.map((item) =>
-                typeof item === 'object' && item !== null
+                typeof item === "object" && item !== null
                   ? item
                   : { label: item, value: item }
               );
             } else if (value !== null && value !== undefined) {
-              return typeof value === 'object' && value !== null
+              return typeof value === "object" && value !== null
                 ? [value]
                 : [{ label: value, value: value }];
             }
@@ -2328,7 +2332,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
       // Helper function for multiselect static data (no useMemo)
       const getMultiselectStaticData = () => {
-        if (actualField.type !== 'multiselectstatic') return null;
+        if (actualField.type !== "multiselectstatic") return null;
 
         const fieldOptions =
           dynamicOptions ||
@@ -2352,7 +2356,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             if (!actualField.key) return [];
 
             const getNestedValue = (obj: any, path: string) => {
-              return path.split('.').reduce((current, key) => {
+              return path.split(".").reduce((current, key) => {
                 return current && current[key] !== undefined
                   ? current[key]
                   : undefined;
@@ -2366,24 +2370,24 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             const directValue = formReady[actualField.key];
             if (directValue !== undefined) return directValue;
 
-            const lastKey = actualField.key.split('.').pop();
+            const lastKey = actualField.key.split(".").pop();
             //@ts-ignore
             return formReady[lastKey!] || [];
           })();
 
           console.log(fieldValues);
           console.log(actualField.key);
-          console.log('Here multiselectstatic fieldvalues');
+          console.log("Here multiselectstatic fieldvalues");
 
           const formatValue = (value: any) => {
             if (Array.isArray(value)) {
               return value.map((item) =>
-                typeof item === 'object' && item !== null
+                typeof item === "object" && item !== null
                   ? item
                   : { label: item, value: item }
               );
             } else if (value !== null && value !== undefined) {
-              return typeof value === 'object' && value !== null
+              return typeof value === "object" && value !== null
                 ? [value]
                 : [{ label: value, value: value }];
             }
@@ -2432,15 +2436,15 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               </FormLabel>
               <FormControl className="">
                 <div className="min-w-full">
-                  {actualField.type === 'text' && (
+                  {actualField.type === "text" && (
                     <Input
                       className="border p-2 w-full"
-                      placeholder={actualField.placeholder || 'Input'}
+                      placeholder={actualField.placeholder || "Input"}
                       disabled={isFixedParent || actualField.disabled}
                       {...formField}
                     />
                   )}
-                  {actualField.type === 'time' && (
+                  {actualField.type === "time" && (
                     <Input
                       type="time"
                       className="border p-2 w-full"
@@ -2448,7 +2452,29 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       {...formField}
                     />
                   )}
-                  {actualField.type === 'date' && (
+                  {actualField.type === "password" && (
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        className="border p-2 w-full pr-10"
+                        placeholder={actualField.placeholder}
+                        disabled={isFixedParent || actualField.disabled}
+                        {...formField}
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 flex items-center pr-3"
+                        onClick={() => setShowPassword(!showPassword)}
+                        disabled={isFixedParent || actualField.disabled}
+                      >
+                        <HugeiconsIcon
+                          icon={showPassword ? ViewIcon : ViewOffIcon}
+                          className="h-5 w-5 text-white cursor-pointer hover:text-white/75"
+                        />
+                      </button>
+                    </div>
+                  )}
+                  {actualField.type === "date" && (
                     <Input
                       type="date"
                       className="border p-2 w-full"
@@ -2456,7 +2482,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       {...formField}
                     />
                   )}
-                  {actualField.type === 'htmlfield' && (
+                  {actualField.type === "htmlfield" && (
                     <div className="w-full -ml-2 mr-auto">
                       <CustomJodit
                         ref={editor}
@@ -2467,7 +2493,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       />
                     </div>
                   )}
-                  {actualField.type === 'multiselect' && multiselectData && (
+                  {actualField.type === "multiselect" && multiselectData && (
                     <MultiSelect
                       key={`${actualField.key}-${
                         multiselectData.fieldOptions?.length || 0
@@ -2475,7 +2501,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       options={multiselectData.fieldOptions || []}
                       className="basic-multi-select"
                       placeholder={
-                        actualField.placeholder || 'Select an option...'
+                        actualField.placeholder || "Select an option..."
                       }
                       defaultValues={
                         isFixedParent
@@ -2486,7 +2512,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       onChange={formField.onChange}
                     />
                   )}
-                  {actualField.type === 'multiselectstatic' &&
+                  {actualField.type === "multiselectstatic" &&
                     multiselectStaticData && (
                       <MultiSelect
                         key={`${actualField.key}-${
@@ -2495,7 +2521,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                         options={multiselectStaticData.fieldOptions || []}
                         className="basic-multi-select"
                         placeholder={
-                          actualField.placeholder || 'Select an option...'
+                          actualField.placeholder || "Select an option..."
                         }
                         defaultValues={
                           isFixedParent
@@ -2506,7 +2532,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                         onChange={formField.onChange}
                       />
                     )}
-                  {actualField.type === 'singleselect' && (
+                  {actualField.type === "singleselect" && (
                     <Combobox
                       key={actualField.key}
                       options={
@@ -2516,14 +2542,14 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                             multiSelectData[actualField.key] ||
                             //@ts-expect-error
                             multiSelectData[
-                              actualField.key.split('.').pop()!
+                              actualField.key.split(".").pop()!
                             ] ||
                             []
                           : [])
                       }
                       className="basic-single-select"
                       placeholder={
-                        actualField.placeholder || 'Select an option...'
+                        actualField.placeholder || "Select an option..."
                       }
                       disabled={isFixedParent || actualField.disabled}
                       defaultValue={
@@ -2542,7 +2568,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       }}
                     />
                   )}
-                  {actualField.type === 'singleselectstatic' && (
+                  {actualField.type === "singleselectstatic" && (
                     <Combobox
                       key={actualField.key}
                       id={suppliedId}
@@ -2553,7 +2579,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                             singleSelectStaticOptions[actualField.key] ||
                             //@ts-expect-error
                             singleSelectStaticOptions[
-                              actualField.key.split('.').pop()!
+                              actualField.key.split(".").pop()!
                             ] ||
                             []
                           : [])
@@ -2561,7 +2587,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       className="basic-select"
                       disabled={isFixedParent || actualField.disabled}
                       placeholder={
-                        actualField.placeholder || 'Select an option...'
+                        actualField.placeholder || "Select an option..."
                       }
                       defaultValue={
                         formField.value
@@ -2573,7 +2599,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       }}
                     />
                   )}
-                  {actualField.type === 'filegallery' && (
+                  {actualField.type === "filegallery" && (
                     <div className="p-4" key={actualField.key}>
                       <EnhancedFileUploader
                         multiple={true}
@@ -2588,7 +2614,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       />
                     </div>
                   )}
-                  {actualField.type === 'jsonArray' && (
+                  {actualField.type === "jsonArray" && (
                     <JsonFormField
                       field={formField}
                       label={actualField.label}
@@ -2597,7 +2623,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       disabled={actualField.disabled}
                     />
                   )}
-                  {actualField.type === 'file' && (
+                  {actualField.type === "file" && (
                     <EnhancedFileUploader
                       multiple={false}
                       onFilesChange={(file) => {
@@ -2608,22 +2634,22 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       id={`file-upload-${formField.name}`}
                     />
                   )}
-                  {actualField.type === 'switch' && (
+                  {actualField.type === "switch" && (
                     <Switch
                       id={actualField.key}
-                      value={formField?.value || 'No'}
+                      value={formField?.value || "No"}
                       label=""
                       onChange={(value: any) => {
                         formField.onChange(value);
                       }}
                     />
                   )}
-                  {actualField.type === 'number' && (
+                  {actualField.type === "number" && (
                     <Input
                       type="number"
                       {...formField}
                       placeholder={
-                        actualField.placeholder || 'Select an option...'
+                        actualField.placeholder || "Select an option..."
                       }
                       className="border p-2 w-full bg-gray-200"
                       disabled={isFixedParent || actualField.disabled}
@@ -2632,11 +2658,11 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       }
                     />
                   )}
-                  {actualField.type === 'textarea' && (
+                  {actualField.type === "textarea" && (
                     <Textarea
                       {...formField}
                       placeholder={
-                        actualField.placeholder || 'Select an option...'
+                        actualField.placeholder || "Select an option..."
                       }
                       className="border p-2 w-full"
                       disabled={isFixedParent || actualField.disabled}
@@ -2660,7 +2686,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     index?: number
   ): string => {
     if (!parentPath) return childKey;
-    if (typeof index === 'number') {
+    if (typeof index === "number") {
       return `${parentPath}[${index}].${childKey}`;
     }
     return `${parentPath}.${childKey}`;
@@ -2669,7 +2695,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   // Recursive function to render nested fields
   const renderNestedField = (
     field: NestedFieldConfig,
-    parentPath: string = '',
+    parentPath: string = "",
     level: number = 0,
     arrayIndex?: number
   ): any => {
@@ -2711,7 +2737,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     // Use the component-level state instead of local useState
     const arrayItems = getArrayItems(currentPath);
 
-    if (field.containerType === 'array') {
+    if (field.containerType === "array") {
       return (
         <div className="nested-array-container">
           <div className="flex items-center justify-between mb-4">
@@ -2728,7 +2754,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                 updateArrayItems(currentPath, [...arrayItems, newIndex]);
               }}
             >
-              {field.arrayConfig?.addButtonText || 'Add Item'}
+              {field.arrayConfig?.addButtonText || "Add Item"}
             </Button>
           </div>
 
@@ -2737,7 +2763,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               <div
                 key={`${currentPath}-${itemIndex}`}
                 className="relative border rounded-lg p-4"
-                style={{ background: 'var(--surface-50)' }}
+                style={{ background: "var(--surface-50)" }}
               >
                 {arrayItems.length > 1 && (
                   <Button
@@ -2748,7 +2774,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       updateArrayItems(currentPath, newItems);
                     }}
                   >
-                    {field.arrayConfig?.removeButtonText || 'Remove'}
+                    {field.arrayConfig?.removeButtonText || "Remove"}
                   </Button>
                 )}
 
@@ -2782,7 +2808,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         <div
           className="space-y-4 border rounded-lg p-4"
           style={{
-            background: 'var(--surface-50)',
+            background: "var(--surface-50)",
             borderLeft: `3px solid var(--primary)`,
             marginLeft: `${level * 8}px`,
           }}
@@ -2801,14 +2827,14 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
     const processField = (
       field: NestedFieldConfig,
-      parentPath: string = ''
+      parentPath: string = ""
     ) => {
       // Process nested children first
       if (field.sync && !syncProcessor.isFieldVisible(field.key)) {
         return;
       }
       console.log(field.key);
-      console.log('Here dynamic field and key');
+      console.log("Here dynamic field and key");
       const dynamicField = syncProcessor.getDynamicField(field.key);
       console.log(dynamicField);
       const actualField: any = dynamicField || field;
@@ -2883,13 +2909,13 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     viewData && (
       <div
         className="flex flex-col w-full h-full min-h-screen "
-        style={{ background: 'var(--background)' }}
+        style={{ background: "var(--background)" }}
       >
         <div
           className="w-full px-10 pt-8 pb-6"
           style={{
-            background: 'var(--surface-100)',
-            borderBottom: '1px solid var(--border)',
+            background: "var(--surface-100)",
+            borderBottom: "1px solid var(--border)",
           }}
         >
           <div className="w-full text-2xl py-[0.3125rem] font-bold text-foreground sticky top-0">
@@ -2925,7 +2951,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       {ungroupedFields.length > 0 && (
                         <div
                           className="space-y-6 p-6 rounded-lg border border-border"
-                          style={{ background: 'var(--surface-100)' }}
+                          style={{ background: "var(--surface-100)" }}
                         >
                           <h3 className="text-lg font-semibold text-foreground">
                             General Information
@@ -2964,7 +2990,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                               {tab.ungroupedFields.length > 0 && (
                                 <div
                                   className="space-y-6 p-6 rounded-lg border border-border"
-                                  style={{ background: 'var(--surface-100)' }}
+                                  style={{ background: "var(--surface-100)" }}
                                 >
                                   <h4 className="text-lg font-medium text-foreground">
                                     Tab Fields
@@ -3023,10 +3049,10 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       putDetailsMutation.isPending ||
                       postDetailMutation.isPending ||
                       isSubmitting
-                        ? 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)'
-                        : 'linear-gradient(135deg, #10b981 0%, #059669 100%)', // Green gradient
+                        ? "linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)"
+                        : "linear-gradient(135deg, #10b981 0%, #059669 100%)", // Green gradient
                     boxShadow:
-                      '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                      "0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
                   }}
                   disabled={
                     putDetailsMutation.isPending ||
@@ -3035,7 +3061,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                     !form.formState.isValid
                   }
                   onClick={form.handleSubmit((data) =>
-                    onSubmit(data, 'saveAndContinue')
+                    onSubmit(data, "saveAndContinue")
                   )}
                 >
                   <div className="flex items-center justify-center space-x-2">
@@ -3068,8 +3094,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       {putDetailsMutation.isPending ||
                       postDetailMutation.isPending ||
                       isSubmitting
-                        ? 'Processing...'
-                        : 'Save & Continue'}
+                        ? "Processing..."
+                        : "Save & Continue"}
                     </span>
                   </div>
 
@@ -3079,7 +3105,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                     isSubmitting) && (
                     <div
                       className="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
-                      style={{ animation: 'shimmer 2s infinite' }}
+                      style={{ animation: "shimmer 2s infinite" }}
                     />
                   )}
                 </Button>
@@ -3093,10 +3119,10 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       putDetailsMutation.isPending ||
                       postDetailMutation.isPending ||
                       isSubmitting
-                        ? 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)'
-                        : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', // Purple gradient
+                        ? "linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)"
+                        : "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)", // Purple gradient
                     boxShadow:
-                      '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                      "0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
                   }}
                   disabled={
                     putDetailsMutation.isPending ||
@@ -3105,7 +3131,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                     !form.formState.isValid
                   }
                   onClick={form.handleSubmit((data) =>
-                    onSubmit(data, 'saveAndAddNew')
+                    onSubmit(data, "saveAndAddNew")
                   )}
                 >
                   <div className="flex items-center justify-center space-x-2">
@@ -3138,8 +3164,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       {putDetailsMutation.isPending ||
                       postDetailMutation.isPending ||
                       isSubmitting
-                        ? 'Processing...'
-                        : 'Save & Add New'}
+                        ? "Processing..."
+                        : "Save & Add New"}
                     </span>
                   </div>
 
@@ -3149,7 +3175,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                     isSubmitting) && (
                     <div
                       className="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
-                      style={{ animation: 'shimmer 2s infinite' }}
+                      style={{ animation: "shimmer 2s infinite" }}
                     />
                   )}
                 </Button>
@@ -3163,18 +3189,18 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       putDetailsMutation.isPending ||
                       postDetailMutation.isPending ||
                       isSubmitting
-                        ? 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)'
-                        : 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark, #2563eb) 100%)',
+                        ? "linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)"
+                        : "linear-gradient(135deg, var(--primary) 0%, var(--primary-dark, #2563eb) 100%)",
                     boxShadow:
-                      '0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                      "0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
                   }}
                   disabled={
                     putDetailsMutation.isPending ||
                     postDetailMutation.isPending ||
                     isSubmitting
                   }
-                       onClick={form.handleSubmit((data) =>
-                    onSubmit(data, 'submit')
+                  onClick={form.handleSubmit((data) =>
+                    onSubmit(data, "submit")
                   )}
                 >
                   <div className="flex items-center justify-center space-x-2">
@@ -3207,8 +3233,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       {putDetailsMutation.isPending ||
                       postDetailMutation.isPending ||
                       isSubmitting
-                        ? 'Processing...'
-                        : 'Submit Form'}
+                        ? "Processing..."
+                        : "Submit Form"}
                     </span>
                   </div>
 
@@ -3218,7 +3244,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                     isSubmitting) && (
                     <div
                       className="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
-                      style={{ animation: 'shimmer 2s infinite' }}
+                      style={{ animation: "shimmer 2s infinite" }}
                     />
                   )}
                 </Button>

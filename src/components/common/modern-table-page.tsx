@@ -20,6 +20,13 @@ import {
   Edit02Icon,
   FolderIcon,
   UserIcon,
+  Folder03Icon,
+  Home05Icon,
+  Legal01Icon,
+  News01Icon,
+  Settings01Icon,
+  Tv01Icon,
+  UserGroup03Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon, IconSvgElement } from '@hugeicons/react';
 import {
@@ -397,9 +404,16 @@ const iconMap: { [key: string]: IconSvgObject } = {
   InformationCircleIcon: InformationCircleIcon,
   Edit01Icon: Edit01Icon,
   Edit02Icon: Edit02Icon,
+  Folder03Icon: Folder03Icon,
+  Home05Icon: Home05Icon,
+  Legal01Icon: Legal01Icon,
+  News01Icon: News01Icon,
+  Settings01Icon: Settings01Icon,
+  Tv01Icon: Tv01Icon,
+  UserGroup03Icon: UserGroup03Icon
 }
 
-const getIconObject = (iconName: any): IconSvgObject => {
+export const getIconObject = (iconName: any): IconSvgObject => {
   return iconMap[iconName] || QuestionIcon;
 };
 const DynamicComponent: React.FC<DynamicComponentProps> = ({

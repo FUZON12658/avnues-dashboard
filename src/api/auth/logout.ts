@@ -1,7 +1,7 @@
 import { crAxios } from "..";
 
 export const logoutApi = async () => {
-  const { data } = await crAxios.post("/api/v1/user/logout");
+  const { data } = await crAxios.get("/api/v1/logout");
   return data;
 };
 
