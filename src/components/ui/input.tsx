@@ -1,4 +1,6 @@
 import React from 'react'
+import { IconSvgObject } from '../common/modern-table-page';
+import { HugeiconsIcon } from '@hugeicons/react';
 
 type InputProps = React.InputHTMLAttributes<HTMLInputElement>
 
@@ -13,7 +15,7 @@ const Input = ({ className = '', ...props }: InputProps) => {
 }
 
 type IconInputProps = {
-  icon?: React.ReactNode;
+  icon?: IconSvgObject;
   iconSrc?: string;
   iconAlt?: string;
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
@@ -35,7 +37,9 @@ const IconInput = ({
     <div className={`relative flex items-center w-full ${containerClassName}`}>
       <div className="absolute left-4 flex items-center justify-center pointer-events-none">
         {icon ? (
-          <div className={`text-gray-500 ${iconClassName}`}>{icon}</div>
+          <div className={`text-gray-500 ${iconClassName}`}>
+              {icon && <HugeiconsIcon icon={icon} />}
+          </div>
         ) : iconSrc ? (
           <img 
             src={iconSrc} 

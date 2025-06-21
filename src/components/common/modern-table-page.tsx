@@ -18,6 +18,8 @@ import {
   QuestionIcon,
   Edit01Icon,
   Edit02Icon,
+  FolderIcon,
+  UserIcon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon, IconSvgElement } from '@hugeicons/react';
 import {
@@ -379,7 +381,23 @@ const iconMap: { [key: string]: IconSvgObject } = {
   FilterIcon: FilterIcon,
   Add01Icon: Add01Icon,
   QuestionIcon: QuestionIcon,
-};
+  Search01Icon: Search01Icon,
+  FolderIcon: FolderIcon,
+  UserIcon: UserIcon,
+  CancelCircleIcon: CancelCircleIcon,
+  Calendar01Icon: Calendar01Icon,
+  User03Icon: User03Icon,
+  Tag01Icon: Tag01Icon,
+  Dollar01Icon: Dollar01Icon,
+  MoreHorizontalCircle01Icon: MoreHorizontalCircle01Icon,
+  ChartLineData01Icon: ChartLineData01Icon,
+  ArrowDown01Icon: ArrowDown01Icon,
+  ArrowLeft01Icon: ArrowLeft01Icon,
+  ArrowRight01Icon: ArrowRight01Icon,
+  InformationCircleIcon: InformationCircleIcon,
+  Edit01Icon: Edit01Icon,
+  Edit02Icon: Edit02Icon,
+}
 
 const getIconObject = (iconName: any): IconSvgObject => {
   return iconMap[iconName] || QuestionIcon;
@@ -403,20 +421,19 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
         />
       );
 
-    case 'IconInput':
-      return (
-        <IconInput
-          //@ts-ignore
-          icon={getIconObject(props.icon)}
-          {...props}
-          inputProps={{
-            ...props.inputProps,
-            value: value || '',
-            onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-              onChange?.(e.target.value),
-          }}
-        />
-      );
+case 'IconInput':
+  return (
+    <IconInput
+      {...props}                    // Spread props first
+      icon={getIconObject(props.icon)}  // Then override with resolved icon
+      inputProps={{
+        ...props.inputProps,
+        value: value || '',
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+          onChange?.(e.target.value),
+      }}
+    />
+  );
 
     case 'Combobox':
       return (
@@ -455,6 +472,7 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
     case 'IconCombobox':
       return (
         <IconCombobox
+          leftIcon={getIconObject(props.leftIcon)}
           options={props.options || []}
           placeholder={props.placeholder}
           defaultValue={value || ''}

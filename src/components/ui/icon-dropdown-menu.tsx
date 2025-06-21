@@ -1,6 +1,8 @@
 'use client';
 import React, { useState, useRef, useEffect, ReactNode } from 'react';
 import { FaChevronDown } from 'react-icons/fa6';
+import { IconSvgObject } from '../common/modern-table-page';
+import { HugeiconsIcon } from '@hugeicons/react';
 
 type IconComboboxOption = {
   value: string;
@@ -13,7 +15,7 @@ type IconComboboxProps = {
   placeholder?: string;
   defaultValue?: string;
   className?: string;
-  leftIcon?: ReactNode;
+  leftIcon?: IconSvgObject;
   onChange?: (value: string) => void;
 };
 
@@ -86,7 +88,7 @@ const IconCombobox = ({
         {/* Left Icon (if provided) */}
         {leftIcon && (
           <div className="mr-3 text-gray-500">
-            {leftIcon}
+            <HugeiconsIcon icon={leftIcon} />
           </div>
         )}
 
