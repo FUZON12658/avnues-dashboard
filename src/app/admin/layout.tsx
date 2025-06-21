@@ -31,10 +31,6 @@ export default async function RootLayout({
 }>) {
   let session = await getSession();
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
         <ReactQueryProvider>
           <ThemeProvider defaultTheme="system">
             <Toaster />
@@ -50,7 +46,5 @@ export default async function RootLayout({
             </AuthProvider>
           </ThemeProvider>
         </ReactQueryProvider>
-      </body>
-    </html>
   );
 }

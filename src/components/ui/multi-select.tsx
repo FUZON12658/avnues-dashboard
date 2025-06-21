@@ -65,7 +65,7 @@ const MultiSelect = ({
   // Memoize filtered options to prevent unnecessary recalculations
   const filteredOptions = useMemo(() => {
     return options.filter(option =>
-      option.label.toLowerCase().includes(inputValue.toLowerCase())
+      option && option.label && option.label.toLowerCase().includes(inputValue.toLowerCase())
     );
   }, [inputValue, options]);
 
