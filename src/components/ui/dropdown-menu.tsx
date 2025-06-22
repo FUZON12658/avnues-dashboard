@@ -33,8 +33,9 @@ const Combobox = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Find the label for the selected value
-  const selectedLabel = options.find(option => option.value === selectedValue)?.label || '';
-
+  const selectedLabel = defaultValue?defaultValue.label : options.find(option => option.value === selectedValue)?.label || '';
+  console.log(JSON.stringify(defaultValue));
+  console.log("defualt value here");
  useEffect(() => {
     // Filter options based on input value
     const filtered =  options.filter(option =>
@@ -48,6 +49,7 @@ const Combobox = ({
       console.log('Setting default value:', defaultValue);
       setSelectedValue(defaultValue.value);
       onChange && onChange(defaultValue.value)
+      
     }
   }, [defaultValue]);
 

@@ -636,7 +636,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
   // Filter data based on JSON filters
   const filteredData = useMemo((): any[] => {
     return (
-      data &&
+      data && data.filter && 
       data.filter((item: any) => {
         const searchTerm: string = filters.search?.toLowerCase() || "";
         const matchesSearch: boolean =
@@ -1293,7 +1293,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {paginatedData.map((item) => (
+                {paginatedData && paginatedData.map((item) => (
                   <React.Fragment key={item.id}>
                     <tr
                       className={`transition-colors ${

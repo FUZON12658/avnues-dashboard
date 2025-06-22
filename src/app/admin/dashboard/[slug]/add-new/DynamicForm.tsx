@@ -2265,9 +2265,12 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         syncProcessor.getDynamicField(field.key) ||
         syncProcessor.getDynamicField(field.key.split(".").pop()!) ||
         field;
-
+     
       const isFixedParent = isFixedParentField(actualField.key, fixedParents);
       const parentData = getFixedParentData(actualField.key, fixedParents);
+       console.log(actualField.key);
+      console.log(isFixedParent);
+      console.log("isFixedparent here");
 
       // Helper function for multiselect data (no useMemo)
       const getMultiselectData = () => {
@@ -2544,7 +2547,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                               actualField.key.split(".").pop()!
                             ] ||
                             []
-                          : []).filter((option:any) => option.value !== suppliedId)
+                          : [])
+                          .filter((option:any) => option.value !== suppliedId)
                       }
                       className="basic-single-select"
                       placeholder={
@@ -2589,7 +2593,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                         actualField.placeholder || "Select an option..."
                       }
                       defaultValue={
-                        formField.value
+                        isFixedParent
+                          ? parentData
+                          :formField.value
                           ? { value: formField.value, label: formField.value }
                           : null
                       }
