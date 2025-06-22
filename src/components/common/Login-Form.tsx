@@ -269,7 +269,7 @@ export function LoginForm({ onSignupClick, isAdmin, isClient, ...props }: LoginF
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <Input type="password" {...field} />
+                  <Input type="password" placeholder="Enter password" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
