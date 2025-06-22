@@ -258,6 +258,7 @@ interface TableColumn {
   type:
     | "text"
     | "badge"
+    | "boolean"
     | "badgearray"
     | "progress"
     | "currency"
@@ -267,7 +268,6 @@ interface TableColumn {
   mainTableActions?: MainTableActionType[]; // New property for main table actions
   actions?: ActionType[]; // Keep existing actions
 }
-
 
 interface TableConfig {
   title: string;
@@ -636,7 +636,8 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
   // Filter data based on JSON filters
   const filteredData = useMemo((): any[] => {
     return (
-      data && data.filter && 
+      data &&
+      data.filter &&
       data.filter((item: any) => {
         const searchTerm: string = filters.search?.toLowerCase() || "";
         const matchesSearch: boolean =
@@ -898,6 +899,12 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
       return variantColors[variant];
     };
 
+    const getBooleanStyle = (value: boolean): string => {
+      return value
+        ? "bg-green-100 text-green-800 border-green-200" // Success styling for true
+        : "bg-red-100 text-red-800 border-red-200"; // Danger styling for false
+    };
+
     switch (column.type) {
       case "text":
         const textValue = getValue(column.key);
@@ -914,7 +921,17 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
             {statusValue ?? "-"}
           </span>
         );
-        break;
+      case "boolean":
+        const booleanValue = getValue(column.key) as boolean;
+        return (
+          <span
+            className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${getBooleanStyle(
+              booleanValue
+            )}`}
+          >
+            {booleanValue ? "Yes" : "No"}
+          </span>
+        );
       case "badgearray":
         const badgeArrayValue = getValue(column.key);
 
@@ -927,9 +944,9 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
             {badgeArrayValue.map((badge, index) => (
               <span
                 key={index}
-                 className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${getStatusStyle(
-              badge
-            )}`}
+                className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${getStatusStyle(
+                  badge
+                )}`}
               >
                 {badge ?? "-"}
               </span>
@@ -1293,39 +1310,40 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {paginatedData && paginatedData.map((item) => (
-                  <React.Fragment key={item.id}>
-                    <tr
-                      className={`transition-colors ${
-                        expandedRowId !== item.id
-                          ? "border-b border-border"
-                          : ""
-                      }`}
-                    >
-                      {dashboardConfig.table.columns.map((column) => (
-                        <td key={column.key} className="py-4 px-6">
-                          {renderTableCell(column, item)}
-                        </td>
-                      ))}
-                    </tr>
-
-                    {expandedRowId === item.id && (
-                      <tr>
-                        <td
-                          colSpan={dashboardConfig.table.columns.length}
-                          className="px-6 py-4"
-                        >
-                          {renderActions(
-                            dashboardConfig.table.columns.find(
-                              (col) => col.key === "sub_table_actions"
-                            )?.actions ?? [],
-                            item
-                          )}
-                        </td>
+                {paginatedData &&
+                  paginatedData.map((item) => (
+                    <React.Fragment key={item.id}>
+                      <tr
+                        className={`transition-colors ${
+                          expandedRowId !== item.id
+                            ? "border-b border-border"
+                            : ""
+                        }`}
+                      >
+                        {dashboardConfig.table.columns.map((column) => (
+                          <td key={column.key} className="py-4 px-6">
+                            {renderTableCell(column, item)}
+                          </td>
+                        ))}
                       </tr>
-                    )}
-                  </React.Fragment>
-                ))}
+
+                      {expandedRowId === item.id && (
+                        <tr>
+                          <td
+                            colSpan={dashboardConfig.table.columns.length}
+                            className="px-6 py-4"
+                          >
+                            {renderActions(
+                              dashboardConfig.table.columns.find(
+                                (col) => col.key === "sub_table_actions"
+                              )?.actions ?? [],
+                              item
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
               </tbody>
             </table>
           </div>

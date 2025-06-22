@@ -893,6 +893,10 @@ const getValidationSchema = (fields: any) => {
           break;
         case "date":
           fieldSchema = z.string();
+          if (allowAny) {
+            fieldSchema = z.any();
+            break;
+          }
           if (required)
             fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
@@ -2050,15 +2054,15 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           if (value && typeof value === "object" && "value" in value) {
             //@ts-ignore
             processedData[key] = value.value;
-          } else         if (
-          fieldType === "singleselect" &&
-          value &&
-          typeof value === "object" &&
-          "id" in value
-        ) {
-          //@ts-ignore
-          processedData[key] = value.id;
-        } else if (value) {
+          } else if (
+            fieldType === "singleselect" &&
+            value &&
+            typeof value === "object" &&
+            "id" in value
+          ) {
+            //@ts-ignore
+            processedData[key] = value.id;
+          } else if (value) {
             //@ts-ignore
             processedData[key] = value;
           } else {
@@ -2247,17 +2251,18 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           );
           return apiDataOptions;
         }
-        
+
         console.log(`📝 No dynamic options for ${field.key}`);
         return null;
       })();
 
       // Log the final options being used
       if (dynamicOptions && dynamicOptions.length > 0) {
-        console.log(dynamicOptions)
+        console.log(dynamicOptions);
         console.log("dynamic options here");
-        dynamicOptions.filter((option:any)=>
-        {return option.value !== suppliedId})
+        dynamicOptions.filter((option: any) => {
+          return option.value !== suppliedId;
+        });
       }
 
       // Get dynamic field configuration
@@ -2265,10 +2270,10 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         syncProcessor.getDynamicField(field.key) ||
         syncProcessor.getDynamicField(field.key.split(".").pop()!) ||
         field;
-     
+
       const isFixedParent = isFixedParentField(actualField.key, fixedParents);
       const parentData = getFixedParentData(actualField.key, fixedParents);
-       console.log(actualField.key);
+      console.log(actualField.key);
       console.log(isFixedParent);
       console.log("isFixedparent here");
 
@@ -2500,7 +2505,11 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       key={`${actualField.key}-${
                         multiselectData.fieldOptions?.length || 0
                       }`}
-                      options={multiselectData.fieldOptions.filter((option:any) => option.value !== suppliedId) || []}
+                      options={
+                        multiselectData.fieldOptions.filter(
+                          (option: any) => option.value !== suppliedId
+                        ) || []
+                      }
                       className="basic-multi-select"
                       placeholder={
                         actualField.placeholder || "Select an option..."
@@ -2547,8 +2556,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                               actualField.key.split(".").pop()!
                             ] ||
                             []
-                          : [])
-                          .filter((option:any) => option.value !== suppliedId)
+                          : []
+                        ).filter((option: any) => option.value !== suppliedId)
                       }
                       className="basic-single-select"
                       placeholder={
@@ -2595,7 +2604,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       defaultValue={
                         isFixedParent
                           ? parentData
-                          :formField.value
+                          : formField.value
                           ? { value: formField.value, label: formField.value }
                           : null
                       }
