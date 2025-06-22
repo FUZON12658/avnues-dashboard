@@ -2045,7 +2045,12 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           }
           // Extract just the value from each selected option
         }
-        if (
+
+        if (fieldType === "singleselect") {
+          if (value && typeof value === "object" && "value" in value) {
+            //@ts-ignore
+            processedData[key] = value.value;
+          } else         if (
           fieldType === "singleselect" &&
           value &&
           typeof value === "object" &&
@@ -2053,12 +2058,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         ) {
           //@ts-ignore
           processedData[key] = value.id;
-        }
-        if (fieldType === "singleselect") {
-          if (value && typeof value === "object" && "value" in value) {
-            //@ts-ignore
-            processedData[key] = value.value;
-          } else if (value) {
+        } else if (value) {
             //@ts-ignore
             processedData[key] = value;
           } else {
@@ -2247,18 +2247,17 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           );
           return apiDataOptions;
         }
-
+        
         console.log(`📝 No dynamic options for ${field.key}`);
         return null;
       })();
 
       // Log the final options being used
-      if (dynamicOptions) {
-        console.log(`🎯 Final options for ${field.key}:`, {
-          count: dynamicOptions.length,
-          source: syncOptions ? "sync" : "api",
-          sample: dynamicOptions.slice(0, 3),
-        });
+      if (dynamicOptions && dynamicOptions.length > 0) {
+        console.log(dynamicOptions)
+        console.log("dynamic options here");
+        dynamicOptions.filter((option:any)=>
+        {return option.value !== suppliedId})
       }
 
       // Get dynamic field configuration
@@ -2498,7 +2497,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       key={`${actualField.key}-${
                         multiselectData.fieldOptions?.length || 0
                       }`}
-                      options={multiselectData.fieldOptions || []}
+                      options={multiselectData.fieldOptions.filter((option:any) => option.value !== suppliedId) || []}
                       className="basic-multi-select"
                       placeholder={
                         actualField.placeholder || "Select an option..."
@@ -2545,7 +2544,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                               actualField.key.split(".").pop()!
                             ] ||
                             []
-                          : [])
+                          : []).filter((option:any) => option.value !== suppliedId)
                       }
                       className="basic-single-select"
                       placeholder={
