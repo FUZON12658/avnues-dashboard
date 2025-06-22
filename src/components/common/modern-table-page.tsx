@@ -1,5 +1,5 @@
-'use client';
-import React, { useState, useMemo, ReactNode } from 'react';
+"use client";
+import React, { useState, useMemo, ReactNode } from "react";
 import {
   FilterIcon,
   Add01Icon,
@@ -27,8 +27,8 @@ import {
   Settings01Icon,
   Tv01Icon,
   UserGroup03Icon,
-} from '@hugeicons/core-free-icons';
-import { HugeiconsIcon, IconSvgElement } from '@hugeicons/react';
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon, IconSvgElement } from "@hugeicons/react";
 import {
   BarChart,
   Bar,
@@ -42,45 +42,45 @@ import {
   Cell,
   LineChart,
   Line,
-} from 'recharts';
+} from "recharts";
 
 // Import your existing UI components
-import Combobox from '@/components/ui/dropdown-menu';
-import { FileUploader } from '@/components/ui/fileuploader';
-import { Input, IconInput } from '@/components/ui/input';
-import MultiSelect from '@/components/ui/multi-select';
-import IconCombobox from '@/components/ui/icon-dropdown-menu';
-import { Button } from '../ui/button';
-import { Textarea } from '../ui/textarea';
-import { useParams, useRouter } from 'next/navigation';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Link from 'next/link';
-import { formatDateInNepaliTimezone } from '@/lib/utils';
-import { crAxios } from '@/api';
+import Combobox from "@/components/ui/dropdown-menu";
+import { FileUploader } from "@/components/ui/fileuploader";
+import { Input, IconInput } from "@/components/ui/input";
+import MultiSelect from "@/components/ui/multi-select";
+import IconCombobox from "@/components/ui/icon-dropdown-menu";
+import { Button } from "../ui/button";
+import { Textarea } from "../ui/textarea";
+import { useParams, useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { formatDateInNepaliTimezone } from "@/lib/utils";
+import { crAxios } from "@/api";
 
 const DeleteConfirmationModal = ({
   isOpen,
   onClose,
   onConfirm,
-  itemName = 'item',
+  itemName = "item",
 }: {
   isOpen: any;
   onClose: any;
   onConfirm: any;
   itemName: any;
 }) => {
-  const [confirmText, setConfirmText] = useState('');
+  const [confirmText, setConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  console.log('delete odal called');
+  console.log("delete odal called");
   const handleConfirm = async () => {
-    if (confirmText === 'CONFIRM') {
+    if (confirmText === "CONFIRM") {
       setIsDeleting(true);
       try {
         await onConfirm();
-        setConfirmText('');
+        setConfirmText("");
         onClose();
       } catch (error) {
-        console.error('Delete failed:', error);
+        console.error("Delete failed:", error);
         // You might want to show an error message to the user here
       } finally {
         setIsDeleting(false);
@@ -89,7 +89,7 @@ const DeleteConfirmationModal = ({
   };
 
   const handleClose = () => {
-    setConfirmText('');
+    setConfirmText("");
     onClose();
   };
 
@@ -103,7 +103,7 @@ const DeleteConfirmationModal = ({
         </h2>
 
         <p className="text-gray-700 mb-4">
-          This action cannot be undone. To confirm deletion, please type{' '}
+          This action cannot be undone. To confirm deletion, please type{" "}
           <span className="font-semibold text-red-600">CONFIRM</span> below:
         </p>
 
@@ -126,10 +126,10 @@ const DeleteConfirmationModal = ({
           </button>
           <button
             onClick={handleConfirm}
-            disabled={confirmText !== 'CONFIRM' || isDeleting}
+            disabled={confirmText !== "CONFIRM" || isDeleting}
             className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isDeleting ? 'Deleting...' : 'Delete'}
+            {isDeleting ? "Deleting..." : "Delete"}
           </button>
         </div>
       </div>
@@ -155,7 +155,7 @@ export type IconSvgObject =
 // Type Definitions
 
 // Variant type for better type safety
-type ButtonVariant = 'primary' | 'secondary' | 'success' | 'warning' | 'danger';
+type ButtonVariant = "primary" | "secondary" | "success" | "warning" | "danger";
 
 interface PaginationProps {
   currentPage: number;
@@ -168,7 +168,7 @@ interface PaginationProps {
 interface ProjectData {
   id: string;
   name: string;
-  status: 'In Progress' | 'Completed' | 'Pending' | 'On Hold';
+  status: "In Progress" | "Completed" | "Pending" | "On Hold";
   category: string;
   amount: number;
   date: string;
@@ -180,13 +180,13 @@ interface StatConfig {
   id: string;
   label: string;
   icon: IconSvgElement;
-  color: 'blue' | 'orange' | 'green' | 'purple' | 'red' | 'gray';
+  color: "blue" | "orange" | "green" | "purple" | "red" | "gray";
   getValue?: (data: ProjectData[]) => number;
   format?: (value: number) => string;
 }
 
 interface HeaderButton {
-  type: 'filter' | 'primary' | 'secondary';
+  type: "filter" | "primary" | "secondary";
   label: string;
   icon: IconSvgElement;
   action: string;
@@ -216,25 +216,25 @@ interface FilterProps {
 interface FilterConfig {
   id: string;
   type:
-    | 'iconInput'
-    | 'select'
-    | 'multiselect'
-    | 'iconCombobox'
-    | 'input'
-    | 'textarea';
+    | "iconInput"
+    | "select"
+    | "multiselect"
+    | "iconCombobox"
+    | "input"
+    | "textarea";
   label: string;
   component:
-    | 'Input'
-    | 'IconInput'
-    | 'Combobox'
-    | 'MultiSelect'
-    | 'Textarea'
-    | 'FileUploader'
-    | 'IconCombobox';
+    | "Input"
+    | "IconInput"
+    | "Combobox"
+    | "MultiSelect"
+    | "Textarea"
+    | "FileUploader"
+    | "IconCombobox";
   props: FilterProps;
 }
 interface ActionType {
-  type: 'button' | 'checkbox' | 'switch';
+  type: "button" | "checkbox" | "switch";
   label: string;
   variant: string;
   onClick?: () => void;
@@ -253,19 +253,21 @@ interface MainTableActionType {
 
 // Updated TableColumn interface with mainTableActions
 interface TableColumn {
-  key: keyof ProjectData | 'actions' | 'maintableactions';
+  key: keyof ProjectData | "sub_table_actions" | "maintableactions";
   label: string;
   type:
-    | 'text'
-    | 'badge'
-    | 'progress'
-    | 'currency'
-    | 'date'
-    | 'maintableactions'
-    | 'actions';
+    | "text"
+    | "badge"
+    | "badgearray"
+    | "progress"
+    | "currency"
+    | "date"
+    | "maintableactions"
+    | "actions";
   mainTableActions?: MainTableActionType[]; // New property for main table actions
   actions?: ActionType[]; // Keep existing actions
 }
+
 
 interface TableConfig {
   title: string;
@@ -286,7 +288,7 @@ interface PieChartDataPoint {
 interface ChartConfig {
   id: string;
   title: string;
-  type: 'pie' | 'bar' | 'line';
+  type: "pie" | "bar" | "line";
   dataProcessor: (
     data: ProjectData[]
   ) => ChartDataPoint[] | PieChartDataPoint[];
@@ -363,8 +365,8 @@ const Pagination: React.FC<PaginationProps> = ({
               onClick={() => onPageChange(pageNum)}
               className={`px-3 py-2 rounded-lg text-sm font-medium ${
                 currentPage === pageNum
-                  ? 'bg-blue-600 text-white'
-                  : 'border border-gray-300 hover:bg-gray-50'
+                  ? "bg-blue-600 text-white"
+                  : "border border-gray-300 hover:bg-gray-50"
               }`}
             >
               {pageNum}
@@ -410,8 +412,8 @@ const iconMap: { [key: string]: IconSvgObject } = {
   News01Icon: News01Icon,
   Settings01Icon: Settings01Icon,
   Tv01Icon: Tv01Icon,
-  UserGroup03Icon: UserGroup03Icon
-}
+  UserGroup03Icon: UserGroup03Icon,
+};
 
 export const getIconObject = (iconName: any): IconSvgObject => {
   return iconMap[iconName] || QuestionIcon;
@@ -424,10 +426,10 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
   const { component, props = {} } = config;
 
   switch (component) {
-    case 'Input':
+    case "Input":
       return (
         <Input
-          value={value || ''}
+          value={value || ""}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             onChange?.(e.target.value)
           }
@@ -435,31 +437,31 @@ const DynamicComponent: React.FC<DynamicComponentProps> = ({
         />
       );
 
-case 'IconInput':
-  return (
-    <IconInput
-      {...props}                    // Spread props first
-      icon={getIconObject(props.icon)}  // Then override with resolved icon
-      inputProps={{
-        ...props.inputProps,
-        value: value || '',
-        onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-          onChange?.(e.target.value),
-      }}
-    />
-  );
+    case "IconInput":
+      return (
+        <IconInput
+          {...props} // Spread props first
+          icon={getIconObject(props.icon)} // Then override with resolved icon
+          inputProps={{
+            ...props.inputProps,
+            value: value || "",
+            onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+              onChange?.(e.target.value),
+          }}
+        />
+      );
 
-    case 'Combobox':
+    case "Combobox":
       return (
         <Combobox
           options={props.options || []}
           placeholder={props.placeholder}
-          defaultValue={value || ''}
+          defaultValue={value || ""}
           onChange={onChange}
         />
       );
 
-    case 'MultiSelect':
+    case "MultiSelect":
       return (
         <MultiSelect
           options={props.options || []}
@@ -469,10 +471,10 @@ case 'IconInput':
         />
       );
 
-    case 'Textarea':
+    case "Textarea":
       return (
         <Textarea
-          value={value || ''}
+          value={value || ""}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
             onChange?.(e.target.value)
           }
@@ -480,16 +482,16 @@ case 'IconInput':
         />
       );
 
-    case 'FileUploader':
+    case "FileUploader":
       return <FileUploader onFilesChange={onChange} {...props} />;
 
-    case 'IconCombobox':
+    case "IconCombobox":
       return (
         <IconCombobox
           leftIcon={getIconObject(props.leftIcon)}
           options={props.options || []}
           placeholder={props.placeholder}
-          defaultValue={value || ''}
+          defaultValue={value || ""}
           onChange={onChange}
         />
       );
@@ -501,9 +503,7 @@ case 'IconInput':
 
 const getAllApi = async (slug: string, fetchLink: string | null) => {
   const { data } = await crAxios.get(
-    fetchLink === null
-      ? `/api/v1/${slug}`
-      : `${fetchLink}`,
+    fetchLink === null ? `/api/v1/${slug}` : `${fetchLink}`
   );
   return data;
 };
@@ -535,14 +535,14 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
   const functionMap = {
     COUNT_ALL: (data: ProjectData[]) => data.length,
     COUNT_IN_PROGRESS: (data: ProjectData[]) =>
-      data.filter((d) => d.status === 'In Progress').length,
+      data.filter((d) => d.status === "In Progress").length,
     // etc.
   };
   const queryClient = useQueryClient();
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false,
     itemId: null,
-    itemName: '',
+    itemName: "",
   });
   console.log(slug);
   const {
@@ -558,20 +558,20 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
     let processedLink = link;
 
     if (item !== null && item.id !== undefined) {
-      processedLink = processedLink.replace('{id}', item.id.toString());
+      processedLink = processedLink.replace("{id}", item.id.toString());
     } else if (id !== undefined) {
-      processedLink = processedLink.replace('{id}', id.toString());
+      processedLink = processedLink.replace("{id}", id.toString());
     }
 
     if (slug !== undefined) {
-      processedLink = processedLink.replace('{slug}', slug.toString());
+      processedLink = processedLink.replace("{slug}", slug.toString());
     }
 
     return processedLink;
   };
-  const deleteItemApi = async (id:string) => {
+  const deleteItemApi = async (id: string) => {
     const response = await crAxios.delete(
-      `${backendFetchedData?.displayModel?.actions?.delete?.actionRoute}${id}`,
+      `${backendFetchedData?.displayModel?.actions?.delete?.actionRoute}${id}`
     );
     return response.data;
   };
@@ -591,45 +591,44 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
     setData(backendFetchedData.mainData);
   }, [backendFetchedData]);
 
-
   const getStatusStyle = (status: string): string => {
-    switch (status.toLowerCase().replace(' ', '-')) {
-      case 'in-progress':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'completed':
-        return 'bg-green-50 text-green-700 border-green-200';
-      case 'pending':
-        return 'bg-orange-50 text-orange-700 border-orange-200';
-      case 'on-hold':
-        return 'bg-red-50 text-red-700 border-red-200';
+    switch (status.toLowerCase().replace(" ", "-")) {
+      case "in-progress":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "completed":
+        return "bg-green-50 text-green-700 border-green-200";
+      case "pending":
+        return "bg-orange-50 text-orange-700 border-orange-200";
+      case "on-hold":
+        return "bg-red-50 text-red-700 border-red-200";
       default:
-        return 'bg-gray-50 text-gray-700 border-gray-200';
+        return "bg-gray-50 text-gray-700 border-gray-200";
     }
   };
 
   const getStatusColor = (status: string): string => {
-    switch (status.toLowerCase().replace(' ', '-')) {
-      case 'in-progress':
-        return '#3b82f6';
-      case 'completed':
-        return '#10b981';
-      case 'pending':
-        return '#f59e0b';
-      case 'on-hold':
-        return '#ef4444';
+    switch (status.toLowerCase().replace(" ", "-")) {
+      case "in-progress":
+        return "#3b82f6";
+      case "completed":
+        return "#10b981";
+      case "pending":
+        return "#f59e0b";
+      case "on-hold":
+        return "#ef4444";
       default:
-        return '#6b7280';
+        return "#6b7280";
     }
   };
 
   const getColorByName = (colorName: string): string => {
     const colorMap: Record<string, string> = {
-      blue: 'bg-blue-50 text-blue-600',
-      orange: 'bg-orange-50 text-orange-600',
-      green: 'bg-green-50 text-green-600',
-      purple: 'bg-purple-50 text-purple-600',
-      red: 'bg-red-50 text-red-600',
-      gray: 'bg-gray-50 text-gray-600',
+      blue: "bg-blue-50 text-blue-600",
+      orange: "bg-orange-50 text-orange-600",
+      green: "bg-green-50 text-green-600",
+      purple: "bg-purple-50 text-purple-600",
+      red: "bg-red-50 text-red-600",
+      gray: "bg-gray-50 text-gray-600",
     };
     return colorMap[colorName] || colorMap.gray;
   };
@@ -639,7 +638,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
     return (
       data &&
       data.filter((item: any) => {
-        const searchTerm: string = filters.search?.toLowerCase() || '';
+        const searchTerm: string = filters.search?.toLowerCase() || "";
         const matchesSearch: boolean =
           !searchTerm ||
           item.name.toLowerCase().includes(searchTerm) ||
@@ -647,8 +646,8 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
 
         const matchesStatus: boolean =
           !filters.status ||
-          filters.status === 'all' ||
-          item.status.toLowerCase().replace(' ', '-') === filters.status;
+          filters.status === "all" ||
+          item.status.toLowerCase().replace(" ", "-") === filters.status;
 
         const matchesCategories: boolean =
           !filters.category ||
@@ -761,7 +760,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
       }));
     };
 
-    localStorage.removeItem('DynamicFormFixedParents');
+    localStorage.removeItem("DynamicFormFixedParents");
 
     if (button.fixedParents && Array.isArray(button.fixedParents)) {
       // Process all the links in fixedParents before storing
@@ -772,16 +771,16 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
       console.log(processedFixedParents);
       // Store the processed parents configuration as JSON
       localStorage.setItem(
-        'DynamicFormFixedParents',
+        "DynamicFormFixedParents",
         JSON.stringify(processedFixedParents)
       );
     }
 
     switch (button.action) {
-      case 'toggleFilter':
+      case "toggleFilter":
         setIsFilterOpen(!isFilterOpen);
         break;
-      case 'addNew':
+      case "addNew":
         {
           fetchLink
             ? router.push(`/admin/dashboard/${slug}/add-new/${id}`)
@@ -797,7 +796,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
     const data = chartData[chart.id];
 
     switch (chart.type) {
-      case 'pie':
+      case "pie":
         const pieData = data as PieChartDataPoint[];
         return (
           <ResponsiveContainer width="100%" height={250}>
@@ -820,7 +819,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
           </ResponsiveContainer>
         );
 
-      case 'bar':
+      case "bar":
         const barData = data as ChartDataPoint[];
         return (
           <ResponsiveContainer width="100%" height={250}>
@@ -830,8 +829,8 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
               <YAxis fontSize={12} />
               <Tooltip
                 formatter={(value: any, name: string) => {
-                  if (name === 'amount')
-                    return [`$${value.toLocaleString()}`, 'Amount'];
+                  if (name === "amount")
+                    return [`$${value.toLocaleString()}`, "Amount"];
                   return [value, name];
                 }}
               />
@@ -844,7 +843,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
           </ResponsiveContainer>
         );
 
-      case 'line':
+      case "line":
         const lineData = data as ChartDataPoint[];
         return (
           <ResponsiveContainer width="100%" height={250}>
@@ -858,8 +857,8 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
                 dataKey="projects"
                 stroke="#8b5cf6"
                 strokeWidth={3}
-                dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 6 }}
-                activeDot={{ r: 8, fill: '#8b5cf6' }}
+                dot={{ fill: "#8b5cf6", strokeWidth: 2, r: 6 }}
+                activeDot={{ r: 8, fill: "#8b5cf6" }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -871,7 +870,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
   };
 
   const getNestedValue = (obj: any, path: string): any => {
-    return path.split('.').reduce((current, key) => {
+    return path.split(".").reduce((current, key) => {
       return current && current[key] !== undefined ? current[key] : undefined;
     }, obj);
   };
@@ -882,7 +881,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
   ): ReactNode => {
     // Get the value - handle nested properties if key contains dot
     const getValue = (key: string) => {
-      if (key.includes('.')) {
+      if (key.includes(".")) {
         return getNestedValue(item, key);
       }
       return item[key as keyof ProjectData];
@@ -890,21 +889,21 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
 
     const getVariantColor = (variant: ButtonVariant): string => {
       const variantColors: Record<ButtonVariant, string> = {
-        primary: 'bg-blue-600 hover:bg-blue-700 text-white',
-        secondary: 'bg-gray-600 hover:bg-gray-700 text-white',
-        success: 'bg-green-600 hover:bg-green-700 text-white',
-        warning: 'bg-yellow-600 hover:bg-yellow-700 text-white',
-        danger: 'bg-red-600 hover:bg-red-700 text-white',
+        primary: "bg-blue-600 hover:bg-blue-700 text-white",
+        secondary: "bg-gray-600 hover:bg-gray-700 text-white",
+        success: "bg-green-600 hover:bg-green-700 text-white",
+        warning: "bg-yellow-600 hover:bg-yellow-700 text-white",
+        danger: "bg-red-600 hover:bg-red-700 text-white",
       };
       return variantColors[variant];
     };
 
     switch (column.type) {
-      case 'text':
+      case "text":
         const textValue = getValue(column.key);
-        return <div className="text-sm font-medium">{textValue ?? '-'}</div>;
+        return <div className="text-sm font-medium">{textValue ?? "-"}</div>;
 
-      case 'badge':
+      case "badge":
         const statusValue = getValue(column.key) as string;
         return (
           <span
@@ -912,11 +911,33 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
               statusValue
             )}`}
           >
-            {statusValue ?? '-'}
+            {statusValue ?? "-"}
           </span>
         );
+        break;
+      case "badgearray":
+        const badgeArrayValue = getValue(column.key);
 
-      case 'progress':
+        if (!Array.isArray(badgeArrayValue) || badgeArrayValue.length === 0) {
+          return <span>-</span>;
+        }
+
+        return (
+          <div className="flex flex-wrap gap-1">
+            {badgeArrayValue.map((badge, index) => (
+              <span
+                key={index}
+                 className={`inline-flex px-2 py-1 text-xs font-medium rounded-md border ${getStatusStyle(
+              badge
+            )}`}
+              >
+                {badge ?? "-"}
+              </span>
+            ))}
+          </div>
+        );
+        break;
+      case "progress":
         const progressValue = getValue(column.key) as number;
         return (
           <div className="flex items-center">
@@ -932,7 +953,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
           </div>
         );
 
-      case 'currency':
+      case "currency":
         const amountValue = getValue(column.key) as number;
         return (
           <div className="text-sm font-medium">
@@ -940,14 +961,14 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
           </div>
         );
 
-      case 'date':
+      case "date":
         const dateValue = formatDateInNepaliTimezone(
           getValue(column.key),
           true
         );
-        return <div className="text-sm">{dateValue ?? '-'}</div>;
+        return <div className="text-sm">{dateValue ?? "-"}</div>;
 
-      case 'maintableactions':
+      case "maintableactions":
         const mainActions = column.mainTableActions || [];
 
         return (
@@ -956,11 +977,11 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
               const handleClick = () => {
                 const processedLink = processLink(action.link, item);
 
-                if (processedLink.startsWith('https')) {
-                  window.open(processedLink, '_blank');
+                if (processedLink.startsWith("https")) {
+                  window.open(processedLink, "_blank");
                 } else {
                   localStorage.setItem(
-                    'fetchLinkMainTableActions',
+                    "fetchLinkMainTableActions",
                     processLink(action.fetchLink, item)
                   );
                   router.push(processedLink);
@@ -982,7 +1003,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
             })}
           </div>
         );
-      case 'actions':
+      case "actions":
         return (
           <button
             className="text-gray-400 hover:text-white transition-colors cursor-pointer"
@@ -1005,11 +1026,11 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
 
   const renderActions = (actions: any[], item: any) => {
     const handleDeleteClick = (deleteAction: any) => {
-      console.log('handlign delete action');
+      console.log("handlign delete action");
       setDeleteModal({
         isOpen: true,
         itemId: item.id,
-        itemName: deleteAction.itemName || 'item',
+        itemName: deleteAction.itemName || "item",
       });
     };
 
@@ -1017,7 +1038,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
       <div className="flex flex-row gap-4">
         {actions.map((action, index) => {
           switch (action.type) {
-            case 'button':
+            case "button":
               return (
                 <Button
                   key={index}
@@ -1028,7 +1049,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
                   {action.label}
                 </Button>
               );
-            case 'checkbox':
+            case "checkbox":
               return (
                 <label key={index} className="flex items-center gap-2">
                   <input
@@ -1039,7 +1060,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
                   {action.label}
                 </label>
               );
-            case 'switch':
+            case "switch":
               return (
                 <label key={index} className="flex items-center gap-2">
                   <span>{action.label}</span>
@@ -1051,7 +1072,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
                   />
                 </label>
               );
-            case 'edit':
+            case "edit":
               return (
                 <Link href={`/admin/dashboard/${slug}/edit/${item.id}`}>
                   <Button
@@ -1064,7 +1085,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
                   </Button>
                 </Link>
               );
-            case 'delete':
+            case "delete":
               return (
                 <button
                   key={index}
@@ -1084,10 +1105,10 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
 
   const handleDeleteConfirm = async () => {
     try {
-      console.log('cofirmation called');
-  
-      console.log(deleteModal.itemId)
-          //@ts-ignore
+      console.log("cofirmation called");
+
+      console.log(deleteModal.itemId);
+      //@ts-ignore
       deleteItemMutation.mutate(deleteModal.itemId);
 
       // Call the stored onSuccess callback if provided
@@ -1099,10 +1120,10 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
       setDeleteModal({
         isOpen: false,
         itemId: null,
-        itemName: '',
+        itemName: "",
       });
     } catch (error) {
-      console.error('Failed to delete item:', error);
+      console.error("Failed to delete item:", error);
       // You might want to show an error message to the user
     }
   };
@@ -1114,7 +1135,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
   return (
     <div
       className={`min-h-screen bg-background relative ${
-        isFilterOpen ? 'max-h-screen ' : ''
+        isFilterOpen ? "max-h-screen " : ""
       }`}
     >
       <DeleteConfirmationModal
@@ -1123,7 +1144,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
           setDeleteModal({
             isOpen: false,
             itemId: null,
-            itemName: '',
+            itemName: "",
           })
         }
         onConfirm={handleDeleteConfirm}
@@ -1147,11 +1168,11 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
                   key={index}
                   onClick={() => handleButtonAction(button)}
                   className={`flex items-center cursor-pointer gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                    button.type === 'filter' && isFilterOpen
-                      ? 'bg-gray-900 text-white'
-                      : button.type === 'primary'
-                      ? 'bg-gray-900 text-white hover:bg-gray-800'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    button.type === "filter" && isFilterOpen
+                      ? "bg-gray-900 text-white"
+                      : button.type === "primary"
+                      ? "bg-gray-900 text-white hover:bg-gray-800"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
                   <HugeiconsIcon icon={getIconObject(button.icon)} />
@@ -1166,7 +1187,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
 
       <div
         className={`mx-auto px-6 py-4 overflow-hidden ${
-          isFilterOpen ? '' : 'relative'
+          isFilterOpen ? "" : "relative"
         }`}
       >
         {/* Stats Cards */}
@@ -1218,7 +1239,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
               <HugeiconsIcon
                 icon={ArrowDown01Icon}
                 className={`text-gray-400 transform transition-transform duration-200 ${
-                  isAnalyticsExpanded ? 'rotate-180' : ''
+                  isAnalyticsExpanded ? "rotate-180" : ""
                 }`}
               />
             </button>
@@ -1230,8 +1251,8 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
           <div
             className={`overflow-hidden transition-all duration-300 ease-in-out ${
               isAnalyticsExpanded
-                ? 'max-h-[2000px] opacity-100 mb-8 z-30 relative'
-                : 'max-h-0 opacity-0'
+                ? "max-h-[2000px] opacity-100 mb-8 z-30 relative"
+                : "max-h-0 opacity-0"
             }`}
           >
             <div className="rounded-xl border border-border shadow-sm p-6">
@@ -1277,8 +1298,8 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
                     <tr
                       className={`transition-colors ${
                         expandedRowId !== item.id
-                          ? 'border-b border-border'
-                          : ''
+                          ? "border-b border-border"
+                          : ""
                       }`}
                     >
                       {dashboardConfig.table.columns.map((column) => (
@@ -1296,7 +1317,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
                         >
                           {renderActions(
                             dashboardConfig.table.columns.find(
-                              (col) => col.key === 'actions'
+                              (col) => col.key === "sub_table_actions"
                             )?.actions ?? [],
                             item
                           )}
@@ -1322,13 +1343,13 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
         {/* Filter Sidebar - Completion */}
         <div
           className={`absolute right-0 top-0 w-[99vw] ${
-            isFilterOpen ? 'z-40 opacity-100' : 'opacity-0 w-0 z-0'
+            isFilterOpen ? "z-40 opacity-100" : "opacity-0 w-0 z-0"
           } h-screen backdrop-blur-sm flex transition-all duration-300 ease-in-out justify-end`}
           onClick={() => setIsFilterOpen(false)}
         >
           <div
             className={`w-96 h-full bg-background shadow-2xl border-l border-border transform transition-transform duration-300 ease-in-out ${
-              isFilterOpen ? 'translate-x-0' : 'translate-x-full'
+              isFilterOpen ? "translate-x-0" : "translate-x-full"
             }`}
             onClick={(e) => e.stopPropagation()}
           >
