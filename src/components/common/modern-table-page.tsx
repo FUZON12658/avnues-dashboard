@@ -57,6 +57,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { formatDateInNepaliTimezone } from "@/lib/utils";
 import { crAxios } from "@/api";
+import { toast } from "sonner";
 
 const DeleteConfirmationModal = ({
   isOpen,
@@ -243,6 +244,11 @@ interface ActionType {
 }
 interface MainTableActionType {
   label: string;
+  decidingKey: string;
+  finalLabelTrue: string;
+  finalLabelFalse: string;
+  finalLabelTrueVariant: ButtonVariant;
+  finalLabelFalseVariant: ButtonVariant;
   variant: ButtonVariant;
   link: string;
   fetchLink: string;
@@ -255,6 +261,7 @@ interface MainTableActionType {
 interface TableColumn {
   key: keyof ProjectData | "sub_table_actions" | "maintableactions";
   label: string;
+  decidingKey: string;
   type:
     | "text"
     | "badge"
@@ -552,6 +559,8 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
   } = useQuery({
     queryFn: () => getAllApi(slug as string, fetchLink),
     queryKey: id ? [`${slug}-view-all`, id] : [`${slug}-view-all`],
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const processLink = (link: string, item: ProjectData | null): string => {
@@ -582,6 +591,14 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
       queryClient.invalidateQueries({
         queryKey: id ? [`${slug}-view-all`, id] : [`${slug}-view-all`],
       });
+      toast.error("Deleted item successfully");
+    },
+    onError: (error: any) => {
+      const message =
+        typeof error?.response?.data?.error === "string"
+          ? error.response.data.error
+          : "Something went wrong!";
+      toast.error(message);
     },
   });
   React.useEffect(() => {
@@ -1004,6 +1021,32 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
                   router.push(processedLink);
                 }
               };
+              const decidingKey = action.decidingKey || null;
+              const decidingFactor = decidingKey
+                ? (getValue(decidingKey) as boolean)
+                : null;
+
+              if (decidingFactor !== null) {
+                return (
+                  <button
+                    key={index}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                      action.color ||
+                      getVariantColor(
+                        decidingFactor
+                          ? action.finalLabelTrueVariant
+                          : action.finalLabelFalseVariant
+                      )
+                    }`}
+                    onClick={handleClick}
+                    title={action.tooltip}
+                  >
+                    {decidingFactor
+                      ? action.finalLabelTrue
+                      : action.finalLabelFalse}
+                  </button>
+                );
+              }
 
               return (
                 <button
@@ -1023,7 +1066,7 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
       case "actions":
         return (
           <button
-            className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+            className="text-gray-400 text-surface-600 hover:text-surface-900 transition-colors cursor-pointer"
             onClick={() =>
               setExpandedRowId(expandedRowId === item.id ? null : item.id)
             }

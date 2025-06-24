@@ -873,6 +873,10 @@ const getValidationSchema = (fields: any) => {
           fieldSchema = z.string().optional();
           break;
         case "number":
+          if (allowAny) {
+            fieldSchema = z.any();
+            break;
+          }
           fieldSchema = z.number();
           if (required)
             fieldSchema = fieldSchema.min(1, `${label} is required`);
@@ -900,6 +904,9 @@ const getValidationSchema = (fields: any) => {
           if (required)
             fieldSchema = fieldSchema.min(1, `${label} is required`);
           break;
+        case "hidden":
+          fieldSchema = z.any();
+          break;
         default:
           fieldSchema = z.any();
       }
@@ -917,6 +924,7 @@ interface FormData {
 interface DynamicFormProps {
   suppliedId?: string | null;
   fixedParents?: any;
+  fetchLink?: any;
   formDataSupplied?: FormData;
 }
 
@@ -933,6 +941,7 @@ const getFixedParentData = (fieldKey: string, fixedParents: any[]) => {
 export const DynamicForm: React.FC<DynamicFormProps> = ({
   suppliedId,
   fixedParents,
+  fetchLink,
   formDataSupplied,
 }) => {
   const [submitFormState, setSubmitFormState] = React.useState("submit");
@@ -1053,11 +1062,15 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   const getDetailsApi = async (
     limit: number = 1,
     offset: number = 0,
-    sortOrder: "ASC" | "DESC" = "DESC"
+    sortOrder: "ASC" | "DESC" = "DESC",
+    fetchLink?: any
   ) => {
-    const response = await crAxios.get(`/api/v1/${slug}`, {
-      params: { limit, offset, sort: sortOrder },
-    });
+    const response = await crAxios.get(
+      fetchLink ? fetchLink : `/api/v1/${slug}`,
+      {
+        params: { limit, offset, sort: sortOrder },
+      }
+    );
     return response.data;
   };
 
@@ -1093,8 +1106,13 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         router.push(`/admin/dashboard/${slug}`);
       }
     },
-    onError: () => {
+    onError: (error: any) => {
       setIsSubmitting(false);
+      const message =
+        typeof error?.response?.data?.error === "string"
+          ? error.response.data.error
+          : "Something went wrong!";
+      toast.error(message);
     },
   });
 
@@ -1124,8 +1142,13 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         router.push(`/admin/dashboard/${slug}`);
       }
     },
-    onError: () => {
+    onError: (error: any) => {
       setIsSubmitting(false);
+      const message =
+        typeof error?.response?.data?.error === "string"
+          ? error.response.data.error
+          : "Something went wrong!";
+      toast.error(message);
     },
   });
 
@@ -1133,6 +1156,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     mutationFn: uploadImageApi,
     onError: () => {
       setIsSubmitting(false);
+      toast.error("Unable to uplaod images!");
     },
   });
   const {
@@ -1142,7 +1166,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     refetch: viewDataRefetch,
   } = useQuery({
     queryKey: [`${slug}-view`],
-    queryFn: () => getDetailsApi(1, 0, "DESC"),
+    queryFn: () => getDetailsApi(1, 0, "DESC", fetchLink),
+    gcTime: 0,
   });
 
   const [multiSelectData, setMultiSelectData] = React.useState({});
@@ -1188,7 +1213,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     if (viewData && !dataFilledRef.current && formDataSupplied) {
       const newDefaultValues = viewData.displayModel.formFields.reduce(
         //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-        (acc, { key, type, populatedKey }) => {
+        (acc, { key, type, populatedKey, defaultValue }) => {
           if (type === "switch") {
             acc[key] = formDataSupplied?.[key] ? "Yes" : "No";
           } else if (type === "number") {
@@ -1250,6 +1275,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             acc[key] = dateValue
               ? new Date(dateValue).toISOString().split("T")[0]
               : "";
+          } else if (type === "hidden") {
+            acc[key] = formDataSupplied?.[key] ?? defaultValue;
           } else {
             console.log(key);
 
@@ -1264,6 +1291,22 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       form.reset(newDefaultValues); // ✅ Dynamically update form values
       if (newDefaultValues) {
         setFormReady(newDefaultValues);
+      }
+    }
+    if (viewData && !formDataSupplied) {
+      const hiddenDefaults = viewData.displayModel.formFields.reduce(
+        //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+        (acc, { key, type, defaultValue }) => {
+          if (type === "hidden" && defaultValue) {
+            acc[key] = defaultValue;
+          }
+          return acc;
+        },
+        {}
+      );
+
+      if (Object.keys(hiddenDefaults).length > 0) {
+        form.reset(hiddenDefaults);
       }
     }
   }, [viewData, form, formDataSupplied]);
@@ -1957,7 +2000,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
   const onSubmit = async (data, action) => {
     try {
-      const data = form.getValues();
       setIsSubmitting(true);
       setSubmitFormState(action);
       let processedData = { ...data };
@@ -2077,11 +2119,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         }
 
         if (fieldType === "date" && typeof value === "string") {
-          console.log("date magaman");
-          console.log(value);
-
           //@ts-ignore
-          processedData[key] = new Date(value).toISOString(); // This gives you the UTC date in ISO 8601 format
+          processedData[key] = value ? new Date(value).toISOString() : null; // This gives you the UTC date in ISO 8601 format
         }
         if (
           fieldType === "singleselectstatic" &&
@@ -2112,7 +2151,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     } catch (error) {
       setIsSubmitting(false);
       console.error("Form submission error:", error);
-      toast.error("An error occurred when saving the data");
+      // toast.error("An error occurred when saving the data");
     }
   };
 
@@ -2435,12 +2474,16 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           name={actualField.key}
           render={({ field: formField }) => (
             <FormItem>
-              <FormLabel>
-                <BodyText variant="trimmed"> {actualField.label}</BodyText>
-                {actualField.required && (
-                  <span className="text-red-500 ml-1 text-xl font-bold">*</span>
-                )}
-              </FormLabel>
+              {actualField.type !== "hidden" && (
+                <FormLabel>
+                  <BodyText variant="trimmed"> {actualField.label}</BodyText>
+                  {actualField.required && (
+                    <span className="text-red-500 ml-1 text-xl font-bold">
+                      *
+                    </span>
+                  )}
+                </FormLabel>
+              )}
               <FormControl className="">
                 <div className="min-w-full">
                   {actualField.type === "text" && (
@@ -2449,6 +2492,16 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                       placeholder={actualField.placeholder || "Input"}
                       disabled={isFixedParent || actualField.disabled}
                       {...formField}
+                    />
+                  )}
+                  {actualField.type === "hidden" && (
+                    <Input
+                      className="hidden"
+                      placeholder={actualField.placeholder || "Input"}
+                      disabled={isFixedParent || actualField.disabled}
+                      {...formField}
+                      value={actualField.defaultValue || ""}
+                      onChange={() => {}} // Dummy onChange since it's hidden
                     />
                   )}
                   {actualField.type === "time" && (
@@ -2496,7 +2549,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                         onChange={formField.onChange}
                         value={formField.value}
                         variable="blogPreview"
-                        editorStyles="min-width:100% !important;"
+                        editorStyles="min-width:100% !important; min-height:400px !important;"
                       />
                     </div>
                   )}

@@ -101,7 +101,7 @@
 //   // Process static parent details for the form
 //   const processedStaticParents = staticParents.map((parent: any) => {
 //     console.log(`Processing static parent ${parent.label} with value:`, parent.value);
-    
+
 //     return {
 //       key: parent.id,
 //       label: parent.label,
@@ -136,6 +136,7 @@ const page = () => {
   const { slug, id } = useParams();
 
   // Get fixed parents configuration
+  const fetchLink = localStorage.getItem("fetchLinkMainTableActions");
   const fixedParentsJson = localStorage.getItem("DynamicFormFixedParents");
   const fixedParents = fixedParentsJson ? JSON.parse(fixedParentsJson) : [];
 
@@ -146,8 +147,12 @@ const page = () => {
   };
 
   // Separate dynamic and static parents
-  const dynamicParents = fixedParents.filter((parent: any) => parent.fetchDetailsLink);
-  const staticParents = fixedParents.filter((parent: any) => parent.value !== undefined && !parent.fetchDetailsLink);
+  const dynamicParents = fixedParents.filter(
+    (parent: any) => parent.fetchDetailsLink
+  );
+  const staticParents = fixedParents.filter(
+    (parent: any) => parent.value !== undefined && !parent.fetchDetailsLink
+  );
 
   // Use multiple queries for each dynamic parent
   const parentQueries = dynamicParents.map((parent: any, index: number) => {
@@ -196,13 +201,18 @@ const page = () => {
 
       // If parent is discardable and has error, skip it silently
       if (parent.discardable && query.isError) {
-        console.log(`Discarding parent ${parent.label} due to error (discardable):`, query.error);
+        console.log(
+          `Discarding parent ${parent.label} due to error (discardable):`,
+          query.error
+        );
         return null;
       }
 
       // If parent is discardable and has no data, skip it silently
       if (parent.discardable && !query.data) {
-        console.log(`Discarding parent ${parent.label} - no data (discardable)`);
+        console.log(
+          `Discarding parent ${parent.label} - no data (discardable)`
+        );
         return null;
       }
 
@@ -221,34 +231,40 @@ const page = () => {
         details: {
           value: data.id,
           label: data[parent.keyToShow],
-        }
+        },
       };
     })
     .filter(Boolean); // Remove null entries
 
   // Process static parent details for the form
   const processedStaticParents = staticParents.map((parent: any) => {
-    console.log(`Processing static parent ${parent.label} with value:`, parent.value);
-    
+    console.log(
+      `Processing static parent ${parent.label} with value:`,
+      parent.value
+    );
+
     return {
       key: parent.id,
       label: parent.label,
-      keyToShow: parent.keyToShow || 'value', // fallback to 'value' if keyToShow not provided
+      keyToShow: parent.keyToShow || "value", // fallback to 'value' if keyToShow not provided
       details: {
         value: parent.value,
         label: parent.label, // use the label from the parent config
-      }
+      },
     };
   });
 
   // Combine both dynamic and static processed parents
-  const processedParents = [...processedDynamicParents, ...processedStaticParents];
+  const processedParents = [
+    ...processedDynamicParents,
+    ...processedStaticParents,
+  ];
 
   console.log(processedParents);
   console.log("Processed parents here");
 
   return (
-    <DynamicForm fixedParents={processedParents} suppliedId={id as string} />
+    <DynamicForm fixedParents={processedParents} suppliedId={id as string} fetchLink={fetchLink} />
   );
 };
 
