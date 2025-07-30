@@ -423,7 +423,7 @@ const Sidebar = () => {
               isCollapsed ? "justify-center translate-x-4" : "justify-center translate-x-0"
             }`}
           >
-            <img src="/yangri.svg" alt="logo" className="h-10" />
+            <img src="/adminasset/yangri.svg" alt="logo" className="h-10" />
             
           </Link>
         </div>
@@ -437,7 +437,7 @@ const Sidebar = () => {
               isCollapsed ? "justify-center translate-x-4" : "justify-center  translate-x-0"
             }`}
           >
-            <img src="/yg.svg" alt="logo" className="h-10" />
+            <img src="/adminasset/yg.svg" alt="logo" className="h-10" />
             <div
               className={`flex flex-col transition-all duration-300 ease-in-out ${
                 isCollapsed
