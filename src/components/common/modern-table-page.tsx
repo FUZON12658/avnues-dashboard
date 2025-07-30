@@ -27,6 +27,9 @@ import {
   Settings01Icon,
   Tv01Icon,
   UserGroup03Icon,
+  Settings04Icon,
+  PackageAddIcon,
+  CallIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, IconSvgElement } from "@hugeicons/react";
 import {
@@ -72,7 +75,6 @@ const DeleteConfirmationModal = ({
 }) => {
   const [confirmText, setConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  console.log("delete odal called");
   const handleConfirm = async () => {
     if (confirmText === "CONFIRM") {
       setIsDeleting(true);
@@ -203,6 +205,7 @@ interface Option {
   value: string;
   label: string;
   icon?: ReactNode;
+  isRestricted?: boolean;
 }
 
 interface FilterProps {
@@ -418,8 +421,11 @@ const iconMap: { [key: string]: IconSvgObject } = {
   Legal01Icon: Legal01Icon,
   News01Icon: News01Icon,
   Settings01Icon: Settings01Icon,
+  Settings04Icon: Settings04Icon,
+  PackageAddIcon: PackageAddIcon,
   Tv01Icon: Tv01Icon,
   UserGroup03Icon: UserGroup03Icon,
+  CallIcon: CallIcon,
 };
 
 export const getIconObject = (iconName: any): IconSvgObject => {
@@ -551,7 +557,6 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
     itemId: null,
     itemName: "",
   });
-  console.log(slug);
   const {
     data: backendFetchedData,
     isLoading,
@@ -578,29 +583,74 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
 
     return processedLink;
   };
-  const deleteItemApi = async (id: string) => {
-    const response = await crAxios.delete(
-      `${backendFetchedData?.displayModel?.actions?.delete?.actionRoute}${id}`
-    );
-    return response.data;
-  };
+const deleteItemApi = async (id: string) => {
+  const response = await crAxios.delete(
+    `${backendFetchedData?.displayModel?.actions?.delete?.actionRoute}${id}`
+  );
+  return response.data;
+};
 
-  const deleteItemMutation = useMutation({
-    mutationFn: deleteItemApi,
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: id ? [`${slug}-view-all`, id] : [`${slug}-view-all`],
-      });
-      toast.error("Deleted item successfully");
-    },
-    onError: (error: any) => {
-      const message =
-        typeof error?.response?.data?.error === "string"
-          ? error.response.data.error
-          : "Something went wrong!";
-      toast.error(message);
-    },
-  });
+// Bulk deletion API (primary - handles both single and multiple)
+const deleteBulkItemsApi = async (ids: string[]) => {
+  console.log('Sending IDs:', ids); // Debug log
+  const payload = { ids };
+  console.log('Payload:', JSON.stringify(payload)); // Debug log
+  
+  const response = await crAxios.post(
+    `${backendFetchedData?.displayModel?.actions?.delete?.actionRoute}delete/`,
+    payload,
+    {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+  return response.data;
+};
+
+// Enhanced delete function with fallback logic
+const deleteItemsApi = async (items: string | string[]) => {
+  // Always convert to array for the bulk API
+  const idsArray = Array.isArray(items) ? items : [items];
+  
+  try {
+    // Try the new bulk API first (can handle both single and multiple)
+    return await deleteBulkItemsApi(idsArray);
+  } catch (error) {
+    // If bulk API fails and we have only one item, try the old single API
+    if (idsArray.length === 1) {
+      try {
+        return await deleteItemApi(idsArray[0]);
+      } catch (fallbackError) {
+        // Both approaches failed, throw the original error
+        throw error;
+      }
+    }
+    // If bulk API fails with multiple items, no fallback available
+    throw error;
+  }
+};
+
+// Mutation that handles both single and bulk deletions with fallback
+const deleteItemMutation = useMutation({
+  mutationFn: deleteItemsApi,
+  onSuccess: (data, variables) => {
+    // Invalidate queries
+    queryClient.invalidateQueries({
+      queryKey: id ? [`${slug}-view-all`, id] : [`${slug}-view-all`],
+    });
+    
+    // Show success message
+    toast.success("Deleted item successfully");
+  },
+  onError: (error: any) => {
+    const message =
+      typeof error?.response?.data?.error === "string"
+        ? error.response.data.error
+        : "Something went wrong!";
+    toast.error(message);
+  },
+});
   React.useEffect(() => {
     if (!backendFetchedData) return;
     setBackendata(backendFetchedData);
@@ -766,7 +816,6 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
     // }
 
     // localStorage.removeItem('DynamicFormFixedParents');
-    console.log(button);
 
     const processFixedParentsLinks = async (
       fixedParents: any[],
@@ -786,7 +835,6 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
         button.fixedParents,
         null
       );
-      console.log(processedFixedParents);
       // Store the processed parents configuration as JSON
       localStorage.setItem(
         "DynamicFormFixedParents",
@@ -1086,7 +1134,6 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
 
   const renderActions = (actions: any[], item: any) => {
     const handleDeleteClick = (deleteAction: any) => {
-      console.log("handlign delete action");
       setDeleteModal({
         isOpen: true,
         itemId: item.id,
@@ -1165,9 +1212,6 @@ const JsonDrivenDashboard: React.FC<JsonDrivenDashboardProps> = ({
 
   const handleDeleteConfirm = async () => {
     try {
-      console.log("cofirmation called");
-
-      console.log(deleteModal.itemId);
       //@ts-ignore
       deleteItemMutation.mutate(deleteModal.itemId);
 

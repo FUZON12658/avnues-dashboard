@@ -34,8 +34,6 @@ const Combobox = ({
 
   // Find the label for the selected value
   const selectedLabel = defaultValue?defaultValue.label : options.find(option => option.value === selectedValue)?.label || '';
-  console.log(JSON.stringify(defaultValue));
-  console.log("defualt value here");
  useEffect(() => {
     // Filter options based on input value
     const filtered =  options.filter(option =>
@@ -46,7 +44,6 @@ const Combobox = ({
 
   useEffect(() => {
     if (defaultValue && defaultValue.value && selectedValue!==defaultValue.value) {
-      console.log('Setting default value:', defaultValue);
       setSelectedValue(defaultValue.value);
       onChange && onChange(defaultValue.value)
       
@@ -90,16 +87,12 @@ const Combobox = ({
   };
 
   const checkIfNeedsId = (option:any)=>{
-    console.log(option);
     if (option.requiresId){
       if(id!==null||id!==undefined){
-        console.log("returning as true as id is present");
         return true;
       }
-      console.log("returning as false as id is not present")
       return false;
     }
-          console.log("directly returning as true")
     return true;
   }
   return (

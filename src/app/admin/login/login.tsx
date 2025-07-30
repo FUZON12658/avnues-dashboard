@@ -13,10 +13,10 @@ export default function AuthComponent() {
           <a href="#" className="flex items-center gap-2 font-medium">
             <div className="flex h-6 w-6 items-center justify-center rounded-md  border-wyfPrimary border text-primary-foreground">
               <div className="w-5 h-5 flex items-center justify-center relative">
-              <ImageWithFallback src="/atv.svg" alt="wyf" imageClassname="object-contain rounded-sm" />
+              <ImageWithFallback src="/yangri.svg" alt="yangri-trip" imageClassname="object-contain rounded-sm" />
               </div>
             </div>
-            Avatar
+            Yangri Trip CMS
           </a>
         </div>
         <div className="flex flex-1 items-center justify-center">
@@ -25,11 +25,11 @@ export default function AuthComponent() {
           </div>
         </div>
       </div>
-      <div className="relative hidden bg-transparent lg:block">
+      <div className="relative hidden bg-transparent lg:block flex items-center justify-center">
         <img
-          src="/atv.svg"
-          alt="Image"
-          className="absolute inset-0 h-full w-full object-cover"
+          src="/yangri.svg"
+          alt="yangri-trip"
+          className="absolute inset-0 h-[70%] w-[70%] object-contain m-auto"
         />
       </div>
     </div>

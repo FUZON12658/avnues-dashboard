@@ -1,9 +1,21 @@
 "use client";
 import { crAxios } from "@/api";
-import FileUploader from "@/components/ui/fileuploader";
-import JsonFormField from "@/components/ui/json-form-field";
+import { uploadImageApi } from "@/api/uploadImage";
 import CustomJodit from "@/components/common/CustomJodit";
+import { BodyText } from "@/components/common/typography";
+import { EnhancedFileUploader } from "@/components/filemanager/file-picker-modal";
 import { Button } from "@/components/ui/button";
+import {
+  CustomAccordion,
+  CustomAccordionContent,
+  CustomAccordionItem,
+  CustomAccordionTrigger,
+  CustomTabs,
+  CustomTabsContent,
+  CustomTabsList,
+  CustomTabsTrigger,
+} from "@/components/ui/custom-tab";
+import Combobox from "@/components/ui/dropdown-menu";
 import {
   Form,
   FormControl,
@@ -13,38 +25,16 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import JsonFormField from "@/components/ui/json-form-field";
+import MultiSelect from "@/components/ui/multi-select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useDeepCompareEffect } from "@/hooks/useDeepCompareEffect";
+import { useDeepCompareMemo } from "@/hooks/useDeepCompareMemo";
+import { useSyncProcessor } from "@/hooks/useSyncProcessor";
 import { capitalizeFirstLetter, formatDateInNepaliTimezone } from "@/lib/utils";
+import { NestedFieldConfig } from "@/types/NestedFieldConfig";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  QueryClient,
-  useMutation,
-  useQueries,
-  useQuery,
-} from "@tanstack/react-query";
-import { X } from "lucide-react";
-import { useParams, usePathname, useRouter } from "next/navigation";
-import React from "react";
-import { useForm } from "react-hook-form";
-import Select from "react-select";
-import { toast } from "sonner";
-import { z } from "zod";
-import { BodyText, Heading } from "@/components/common/typography";
-import { uploadImageApi } from "@/api/uploadImage";
-import MultiSelect from "@/components/ui/multi-select";
-import Combobox from "@/components/ui/dropdown-menu";
-import {
-  CustomAccordion,
-  CustomAccordionItem,
-  CustomAccordionTrigger,
-  CustomAccordionContent,
-  CustomTabs,
-  CustomTabsList,
-  CustomTabsTrigger,
-  CustomTabsContent,
-} from "@/components/ui/custom-tab";
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Add01Icon,
   Edit02Icon,
@@ -52,771 +42,26 @@ import {
   ViewIcon,
   ViewOffIcon,
 } from "@hugeicons/core-free-icons";
-import { EnhancedFileUploader } from "@/components/filemanager/file-picker-modal";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  useDeepCompareEffect,
-  useDeepCompareMemo,
-} from "@/hooks/deepCompareMemo";
-
-interface NestedFieldConfig {
-  key: string;
-  label: string;
-  type: string;
-  required?: boolean;
-  disabled?: boolean;
-  tabId?: string;
-  tabName?: string;
-  expandableSectionId?: string;
-  expandableSectionName?: string;
-  sync?: any;
-  // New properties for nested handling
-  children?: NestedFieldConfig[];
-  isNested?: boolean;
-  parentPath?: string;
-  nestingLevel?: number;
-  containerType?: "object" | "array";
-  arrayConfig?: {
-    minItems?: number;
-    maxItems?: number;
-    addButtonText?: string;
-    removeButtonText?: string;
-  };
-}
-
-interface SyncConfig {
-  dependentOn?: string | string[]; // Field key(s) this field depends on
-  followedBy?: string | string[]; // Field key(s) that follow this field
-  dependencyType: "restriction" | "value_update" | "dynamicFieldGen";
-  valueMaps?: {
-    [key: string]: any; // Maps dependent field values to actions
-  };
-}
-
-interface FormFieldWithSync {
-  key: string;
-  label: string;
-  type: string;
-  required?: boolean;
-  disabled?: boolean;
-  values?: any[];
-  sync?: SyncConfig;
-  // ... other existing properties
-}
-//working
-
-const useSyncProcessor = (fields: FormFieldWithSync[], formValues: any) => {
-  const [visibleFields, setVisibleFields] = React.useState<Set<string>>(
-    new Set()
-  );
-  const [dynamicFields, setDynamicFields] = React.useState<
-    Map<string, FormFieldWithSync>
-  >(new Map());
-  const [fieldOptions, setFieldOptions] = React.useState<Map<string, any[]>>(
-    new Map()
-  );
-  const [fieldApiConfig, setFieldApiConfig] = React.useState<
-    Map<
-      string,
-      { dataRoute: string; dataToShow: string[]; populatedKey: string }
-    >
-  >(new Map());
-
-  // Helper function to extract value from form field
-  const extractValue = (rawValue: any) => {
-    if (rawValue === null || rawValue === undefined) return null;
-    console.log("raw value here:");
-    console.log(rawValue);
-    console.log("raw value ended");
-    // Handle object with value property (like from select components)
-    if (typeof rawValue === "object" && rawValue.value !== undefined) {
-      return rawValue.value;
-    }
-
-    return rawValue;
-  };
-
-  // Helper function to flatten nested fields and create a comprehensive field map
-  const createFieldMap = (
-    fields: any[],
-    parentPath: string = ""
-  ): Map<string, any> => {
-    const fieldMap = new Map<string, FormFieldWithSync>();
-
-    fields.forEach((field: any) => {
-      const fullPath = parentPath
-        ? `${parentPath}${
-            isNaN(Number(field.key)) ? `.${field.key}` : `[${field.key}]`
-          }`
-        : field.key;
-      fieldMap.set(fullPath, field);
-      fieldMap.set(field.key, field); // Also store by simple key for lookup
-
-      // Process children recursively
-      if (field.children && field.children.length > 0) {
-        const childMap = createFieldMap(field.children, fullPath);
-        childMap.forEach((childField, childPath) => {
-          fieldMap.set(childPath, childField);
-        });
-      }
-    });
-
-    return fieldMap;
-  };
-
-  // Helper function to get nested value from form values using dot notation
-  const getNestedValue = (obj: any, path: string): any => {
-    const parts = path.replace(/\[(\d+)\]/g, ".$1").split(".");
-    return parts.reduce((acc, part) => (acc ? acc[part] : undefined), obj);
-  };
-
-  // Helper function to find all possible paths for a field key in nested structures
-  const findFieldPaths = (
-    obj: any,
-    targetKey: string,
-    currentPath: string = ""
-  ): string[] => {
-    const paths: string[] = [];
-
-    if (!obj || typeof obj !== "object") return paths;
-
-    Object.keys(obj).forEach((key) => {
-      const fullPath = currentPath ? `${currentPath}.${key}` : key;
-      if (key === targetKey) {
-        paths.push(fullPath);
-      }
-
-      if (Array.isArray(obj[key])) {
-        obj[key].forEach((item: any, index: number) => {
-          const arrayItemPath = `${fullPath}[${index}]`;
-          paths.push(...findFieldPaths(item, targetKey, arrayItemPath));
-        });
-      } else if (typeof obj[key] === "object") {
-        paths.push(...findFieldPaths(obj[key], targetKey, fullPath));
-      }
-    });
-
-    return paths;
-  };
-
-  // Helper function to get field key variants for lookup
-  const getFieldKeyVariants = (fieldKey: string) => {
-    const variants = [fieldKey];
-    if (fieldKey.includes(".")) {
-      variants.push(fieldKey.split(".").pop()!);
-    }
-    return variants;
-  };
-
-  // Helper function to get the parent path context for dynamic field generation
-  const getParentPathContext = (
-    fieldPath: string,
-    fieldKey: string
-  ): string => {
-    if (fieldPath === fieldKey) {
-      return ""; // No parent context for simple keys
-    }
-    // Remove the field key from the end to get parent context
-    const regex = new RegExp(
-      `[\\.\\[]${fieldKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]?$`
-    );
-    return fieldPath.replace(regex, "");
-  };
-
-  // Memoize the processing to prevent unnecessary re-calculations
-  const processedData = useDeepCompareMemo(() => {
-    console.log("🔄 Processing sync effects...");
-    console.log("📝 Form values:", formValues);
-
-    const fieldMap = createFieldMap(fields);
-    const newVisibleFields = new Set<string>();
-    const newDynamicFields = new Map<string, FormFieldWithSync>();
-    const newFieldOptions = new Map<string, any[]>();
-    const newFieldApiConfig = new Map<
-      string,
-      { dataRoute: string; dataToShow: string[]; populatedKey: string }
-    >();
-
-    // Initialize all fields as visible by default (fields without sync or dependentOn)
-    fieldMap.forEach((field, path) => {
-      if (!field.sync?.dependentOn) {
-        newVisibleFields.add(path);
-        if (path !== field.key) {
-          newVisibleFields.add(field.key); // Also add simple key
-        }
-        console.log(`✅ Adding field as visible (no dependentOn): ${path}`);
-      }
-    });
-
-    // Process each field's sync configuration
-    fieldMap.forEach((field, fieldPath) => {
-      if (!field.sync) {
-        newVisibleFields.add(fieldPath);
-        if (fieldPath !== field.key) {
-          newVisibleFields.add(field.key);
-        }
-        return;
-      }
-
-      const sync = field.sync;
-      console.log(`🔍 Processing field: ${fieldPath} (${field.key})`, sync);
-
-      // Handle fields that depend on other fields (DEPENDENT FIELDS)
-      if (sync.dependentOn) {
-        const dependentKeys = Array.isArray(sync.dependentOn)
-          ? sync.dependentOn
-          : [sync.dependentOn];
-
-        dependentKeys.forEach((dependentKey: any) => {
-          // For nested structures, find all possible paths
-          const dependentPaths = findFieldPaths(formValues, dependentKey);
-
-          // Also check direct field access for simple cases
-          if (
-            dependentPaths.length === 0 &&
-            formValues[dependentKey] !== undefined
-          ) {
-            dependentPaths.push(dependentKey);
-          }
-
-          dependentPaths.forEach((dependentPath) => {
-            const dependentValue = extractValue(
-              getNestedValue(formValues, dependentPath)
-            );
-
-            console.log(
-              `📊 Dependent key: ${dependentKey} at path: ${dependentPath}, extracted value:`,
-              dependentValue
-            );
-
-            if (dependentValue && sync.valueMaps?.[dependentValue]) {
-              const valueMap = sync.valueMaps[dependentValue];
-              console.log(
-                `🗺️ Found value map for ${dependentValue}:`,
-                valueMap
-              );
-              console.log(`processing dependent value: ${dependentValue}`);
-              switch (sync.dependencyType) {
-                case "restriction":
-                  if (valueMap.show?.includes(field.key)) {
-                    newVisibleFields.add(fieldPath);
-                    newVisibleFields.add(field.key);
-                  }
-                  // if (valueMap.hide?.includes(field.key)) {
-                  //   newVisibleFields.delete(fieldPath);
-                  //   newVisibleFields.delete(field.key);
-                  // }
-                  break;
-
-                case "value_update":
-                  newVisibleFields.add(fieldPath);
-                  newVisibleFields.add(field.key);
-
-                  if (valueMap.options) {
-                    newFieldOptions.set(fieldPath, valueMap.options);
-                    newFieldOptions.set(field.key, valueMap.options);
-                    console.log(
-                      `🎛️ Setting options for ${fieldPath}:`,
-                      valueMap.options
-                    );
-                  } else if (valueMap.updateField) {
-                    const updateField = valueMap.updateField;
-
-                    // Handle API configuration
-                    if (updateField.dataRoute && updateField.dataToShow) {
-                      const apiConfig = {
-                        dataRoute: updateField.dataRoute,
-                        dataToShow: updateField.dataToShow,
-                        populatedKey: updateField.populatedKey || field.key,
-                      };
-
-                      // Store API config for the current field (the one being updated)
-                      newFieldApiConfig.set(fieldPath, apiConfig);
-                      newFieldApiConfig.set(field.key, apiConfig);
-                      console.log(
-                        `🌐 Setting API config for dependent field ${fieldPath}:`,
-                        apiConfig
-                      );
-                    }
-
-                    // Handle static values from updateField
-                    if (updateField.values) {
-                      const staticOptions = updateField.values.map(
-                        (option: any) => ({
-                          value: option.value || option.Value,
-                          label: option.label || option.Label,
-                        })
-                      );
-                      newFieldOptions.set(fieldPath, staticOptions);
-                      newFieldOptions.set(field.key, staticOptions);
-                      console.log(
-                        `🎛️ Setting updateField static options for ${fieldPath}:`,
-                        staticOptions
-                      );
-                    }
-                  }
-                  break;
-
-                case "dynamicFieldGen":
-                  console.log(`🏗️ Dynamic field gen for: ${fieldPath}`);
-                  if (valueMap.generateField) {
-                    const dynamicField = {
-                      ...valueMap.generateField,
-                      key: field.key,
-                    };
-
-                    // Get the parent context from the dependent field path
-                    const parentContext = getParentPathContext(
-                      dependentPath,
-                      dependentKey
-                    );
-                    const dynamicFieldPath = parentContext
-                      ? `${parentContext}.${dynamicField.key}`
-                      : dynamicField.key;
-                    console.log(dynamicFieldPath);
-                    console.log("Bryangaman here");
-                    // Also add the base path without array indices for general visibility
-                    const baseParentContext = parentContext.replace(
-                      /\[\d+\]/g,
-                      ""
-                    );
-                    const baseDynamicFieldPath = baseParentContext
-                      ? `${baseParentContext}.${dynamicField.key}`
-                      : dynamicField.key;
-
-                    dynamicField.key = baseDynamicFieldPath;
-                    newDynamicFields.set(dynamicFieldPath, dynamicField);
-                    newDynamicFields.set(dynamicField.key, dynamicField);
-                    newDynamicFields.set(baseDynamicFieldPath, dynamicField);
-
-                    newVisibleFields.add(dynamicFieldPath);
-                    newVisibleFields.add(dynamicField.key);
-                    newVisibleFields.add(baseDynamicFieldPath);
-
-                    console.log(
-                      `✨ Generated dynamic field for ${dynamicFieldPath} and ${baseDynamicFieldPath}:`,
-                      dynamicField
-                    );
-                  } else {
-                    // Remove dynamic field when no generateField is specified
-                    const parentContext = getParentPathContext(
-                      dependentPath,
-                      dependentKey
-                    );
-                    const dynamicFieldPath = parentContext
-                      ? `${parentContext}.${field.key}`
-                      : field.key;
-
-                    const baseParentContext = parentContext.replace(
-                      /\[\d+\]/g,
-                      ""
-                    );
-                    const baseDynamicFieldPath = baseParentContext
-                      ? `${baseParentContext}.${field.key}`
-                      : field.key;
-
-                    newDynamicFields.delete(dynamicFieldPath);
-                    newDynamicFields.delete(field.key);
-                    newDynamicFields.delete(baseDynamicFieldPath);
-
-                    newVisibleFields.delete(dynamicFieldPath);
-                    newVisibleFields.delete(field.key);
-                    newVisibleFields.delete(baseDynamicFieldPath);
-
-                    console.log(
-                      `🗑️ Removed dynamic field for ${dynamicFieldPath} and ${baseDynamicFieldPath}`
-                    );
-                  }
-                  break;
-              }
-            } else {
-              // Handle case when dependent value is empty or not found
-              if (sync.dependencyType === "value_update") {
-                newVisibleFields.add(fieldPath);
-                newVisibleFields.add(field.key);
-                // Clear options and API config when no dependent value
-                newFieldOptions.delete(fieldPath);
-                newFieldOptions.delete(field.key);
-                newFieldApiConfig.delete(fieldPath);
-                newFieldApiConfig.delete(field.key);
-                console.log(
-                  `🧹 Cleared options and API config for ${fieldPath} (no dependent value)`
-                );
-              } else if (sync.dependencyType === "dynamicFieldGen") {
-                // DON'T automatically remove dynamic fields when no dependent value
-                // Only remove if the field was previously generated and now shouldn't be
-                // This requires tracking the previous state or being more selective
-
-                // Instead of aggressive cleanup, only clean up if we're sure the field shouldn't exist
-                console.log(
-                  `⚠️ No dependent value found for dynamic field gen: ${fieldPath}`
-                );
-
-                // Optional: Only clean up if this is a state change (field was visible before but shouldn't be now)
-                // This requires more sophisticated state tracking
-              }
-            }
-          });
-        });
-      }
-
-      // Handle fields that control other fields (PARENT FIELDS)
-      if (sync.followedBy) {
-        const followedKeys = Array.isArray(sync.followedBy)
-          ? sync.followedBy
-          : [sync.followedBy];
-
-        // Find all instances of this field in the form
-        const fieldPaths = findFieldPaths(formValues, field.key);
-
-        // Also check direct field access for simple cases
-        if (fieldPaths.length === 0 && formValues[field.key] !== undefined) {
-          fieldPaths.push(field.key);
-        }
-
-        fieldPaths.forEach((currentFieldPath) => {
-          const currentValue = extractValue(
-            getNestedValue(formValues, currentFieldPath)
-          );
-          console.log(
-            `📊 Current value of parent ${field.key} at ${currentFieldPath}:`,
-            currentValue
-          );
-          console.log(currentValue);
-          console.log("current value just before current value");
-          let currentVal = Array.isArray(currentValue)
-            ? currentValue
-            : [currentValue];
-          currentVal.forEach((currentValue) => {
-            if (currentValue && sync.valueMaps?.[currentValue]) {
-              console.log(`processing current value: ${currentValue}`);
-              const valueMap = sync.valueMaps[currentValue];
-              console.log("current value just before current value 2");
-              switch (sync.dependencyType) {
-                case "restriction":
-                  valueMap.show?.forEach((key: string) => {
-                    // Find the correct context for the controlled field
-                    const parentContext = getParentPathContext(
-                      currentFieldPath,
-                      field.key
-                    );
-                    const controlledFieldPath = parentContext
-                      ? `${parentContext}.${key}`
-                      : key;
-
-                    newVisibleFields.add(controlledFieldPath);
-                    newVisibleFields.add(key);
-                  });
-                  // valueMap.hide?.forEach((key: string) => {
-                  //   const parentContext = getParentPathContext(
-                  //     currentFieldPath,
-                  //     field.key
-                  //   );
-                  //   const controlledFieldPath = parentContext
-                  //     ? `${parentContext}.${key}`
-                  //     : key;
-
-                  //   newVisibleFields.delete(controlledFieldPath);
-                  //   newVisibleFields.delete(key);
-                  // });
-                  break;
-
-                case "value_update":
-                  followedKeys.forEach((followedKey: any) => {
-                    // Find the correct path for the followed field in the same context
-                    const parentContext = getParentPathContext(
-                      currentFieldPath,
-                      field.key
-                    );
-                    const followedFieldPath = parentContext
-                      ? `${parentContext}.${followedKey}`
-                      : followedKey;
-
-                    newVisibleFields.add(followedFieldPath);
-                    newVisibleFields.add(followedKey);
-
-                    if (valueMap.options) {
-                      newFieldOptions.set(followedFieldPath, valueMap.options);
-                      newFieldOptions.set(followedKey, valueMap.options);
-                      console.log(
-                        `🎛️ Setting options for controlled field ${followedFieldPath}:`,
-                        valueMap.options
-                      );
-                    } else if (valueMap.updateField) {
-                      const updateField = valueMap.updateField;
-
-                      // Handle API configuration for followed fields
-                      if (updateField.dataRoute && updateField.dataToShow) {
-                        const apiConfig = {
-                          dataRoute: updateField.dataRoute,
-                          dataToShow: updateField.dataToShow,
-                          populatedKey: updateField.populatedKey || followedKey,
-                        };
-
-                        // Store API config for the followed field
-                        newFieldApiConfig.set(followedFieldPath, apiConfig);
-                        newFieldApiConfig.set(followedKey, apiConfig);
-                        console.log(
-                          `🌐 Setting API config for followed field ${followedFieldPath}:`,
-                          apiConfig
-                        );
-                      }
-
-                      // Handle static values from updateField for followed fields
-                      if (updateField.values) {
-                        const staticOptions = updateField.values.map(
-                          (option: any) => ({
-                            value: option.value || option.Value,
-                            label: option.label || option.Label,
-                          })
-                        );
-                        newFieldOptions.set(followedFieldPath, staticOptions);
-                        newFieldOptions.set(followedKey, staticOptions);
-                        console.log(
-                          `🎛️ Setting updateField static options for followed field ${followedFieldPath}:`,
-                          staticOptions
-                        );
-                      }
-                    }
-                  });
-                  break;
-
-                case "dynamicFieldGen":
-                  followedKeys.forEach((followedKey: any) => {
-                    if (valueMap.generateField) {
-                      const dynamicField = {
-                        ...valueMap.generateField,
-                      };
-
-                      // Use the parent context from the current field path
-                      const parentContext = getParentPathContext(
-                        currentFieldPath,
-                        field.key
-                      );
-                      const dynamicFieldPath = parentContext
-                        ? `${parentContext}.${dynamicField.key}`
-                        : dynamicField.key;
-                      // Also add the base path without array indices
-                      const baseParentContext = parentContext.replace(
-                        /\[\d+\]/g,
-                        ""
-                      );
-                      const baseDynamicFieldPath = baseParentContext
-                        ? `${baseParentContext}.${dynamicField.key}`
-                        : dynamicField.key;
-                      dynamicField.key = dynamicFieldPath;
-                      newDynamicFields.set(dynamicFieldPath, dynamicField);
-                      newDynamicFields.set(dynamicField.key, dynamicField);
-                      newDynamicFields.set(baseDynamicFieldPath, dynamicField);
-
-                      newVisibleFields.add(dynamicFieldPath);
-                      newVisibleFields.add(dynamicField.key);
-                      newVisibleFields.add(baseDynamicFieldPath);
-
-                      console.log(
-                        `✨ Generated dynamic field for ${dynamicFieldPath} and ${baseDynamicFieldPath}:`,
-                        dynamicField
-                      );
-                    } else {
-                      const parentContext = getParentPathContext(
-                        currentFieldPath,
-                        field.key
-                      );
-                      const dynamicFieldPath = parentContext
-                        ? `${parentContext}.${followedKey}`
-                        : followedKey;
-
-                      const baseParentContext = parentContext.replace(
-                        /\[\d+\]/g,
-                        ""
-                      );
-                      const baseDynamicFieldPath = baseParentContext
-                        ? `${baseParentContext}.${followedKey}`
-                        : followedKey;
-
-                      newDynamicFields.delete(dynamicFieldPath);
-                      newDynamicFields.delete(followedKey);
-                      newDynamicFields.delete(baseDynamicFieldPath);
-
-                      newVisibleFields.delete(dynamicFieldPath);
-                      newVisibleFields.delete(followedKey);
-                      newVisibleFields.delete(baseDynamicFieldPath);
-
-                      console.log(
-                        `🗑️ Removed dynamic field for ${dynamicFieldPath} and ${baseDynamicFieldPath}`
-                      );
-                    }
-                  });
-                  break;
-              }
-            } else {
-              // Clear options/fields for controlled fields when parent has no value
-              if (sync.dependencyType === "value_update") {
-                followedKeys.forEach((followedKey: any) => {
-                  const parentContext = getParentPathContext(
-                    currentFieldPath,
-                    field.key
-                  );
-                  const followedFieldPath = parentContext
-                    ? `${parentContext}.${followedKey}`
-                    : followedKey;
-
-                  newVisibleFields.add(followedFieldPath);
-                  newVisibleFields.add(followedKey);
-                  // Clear both options and API config
-                  newFieldOptions.delete(followedFieldPath);
-                  newFieldOptions.delete(followedKey);
-                  newFieldApiConfig.delete(followedFieldPath);
-                  newFieldApiConfig.delete(followedKey);
-                  console.log(
-                    `🧹 Cleared options and API config for controlled field ${followedFieldPath} (no parent value)`
-                  );
-                });
-              } else if (sync.dependencyType === "dynamicFieldGen") {
-                followedKeys.forEach((followedKey: any) => {
-                  const parentContext = getParentPathContext(
-                    currentFieldPath,
-                    field.key
-                  );
-                  const baseParentContext = parentContext.replace(
-                    /\[\d+\]/g,
-                    ""
-                  );
-
-                  // Clean up any dynamic fields that might have been generated
-                  newDynamicFields.forEach((dynamicField, path) => {
-                    const pathContext = parentContext
-                      ? `${parentContext}.`
-                      : "";
-                    const basePathContext = baseParentContext
-                      ? `${baseParentContext}.`
-                      : "";
-
-                    if (
-                      (path.startsWith(pathContext) ||
-                        path.startsWith(basePathContext)) &&
-                      path.includes(followedKey)
-                    ) {
-                      newDynamicFields.delete(path);
-                      newVisibleFields.delete(path);
-                    }
-                  });
-
-                  // Also clean up simple key references
-                  newDynamicFields.delete(followedKey);
-                  newVisibleFields.delete(followedKey);
-
-                  // Clean up base path references
-                  const baseDynamicFieldPath = baseParentContext
-                    ? `${baseParentContext}.${followedKey}`
-                    : followedKey;
-                  newDynamicFields.delete(baseDynamicFieldPath);
-                  newVisibleFields.delete(baseDynamicFieldPath);
-
-                  console.log(
-                    `🗑️ Removed dynamic field for ${followedKey} and ${baseDynamicFieldPath} (no parent value)`
-                  );
-                });
-              }
-            }
-          });
-        });
-      }
-    });
-
-    console.log("🔍 Final processing results:");
-    console.log("👁️ Visible fields:", Array.from(newVisibleFields));
-    console.log("🎭 Dynamic fields:", Array.from(newDynamicFields.keys()));
-    console.log("🎛️ Field options:", Array.from(newFieldOptions.keys()));
-    console.log("🌐 Field API configs:", Array.from(newFieldApiConfig.keys()));
-
-    return {
-      visibleFields: newVisibleFields,
-      dynamicFields: newDynamicFields,
-      fieldOptions: newFieldOptions,
-      fieldApiConfig: newFieldApiConfig,
-    };
-  }, [fields, formValues]);
-
-  // Update state when processed data changes
-  React.useEffect(() => {
-    setVisibleFields(processedData.visibleFields);
-    setDynamicFields(processedData.dynamicFields);
-    setFieldOptions(processedData.fieldOptions);
-    setFieldApiConfig(processedData.fieldApiConfig);
-  }, [processedData]);
-
-  return {
-    visibleFields: processedData.visibleFields,
-    dynamicFields: processedData.dynamicFields,
-    fieldOptions: processedData.fieldOptions,
-    fieldApiConfig: processedData.fieldApiConfig,
-    isFieldVisible: (fieldKey: string) => {
-      // Check both full key and short key variants
-      const variants = getFieldKeyVariants(fieldKey);
-      return variants.some((variant) =>
-        processedData.visibleFields.has(variant)
-      );
-    },
-    getDynamicField: (fieldKey: string) => {
-      // Check both full key and short key variants
-      const variants = getFieldKeyVariants(fieldKey);
-      for (const variant of variants) {
-        const dynamicField = processedData.dynamicFields.get(variant);
-        if (dynamicField) {
-          return dynamicField;
-        }
-      }
-      return null;
-    },
-    getFieldOptions: (fieldKey: string) => {
-      // Check both full key and short key variants
-      const variants = getFieldKeyVariants(fieldKey);
-      for (const variant of variants) {
-        const options = processedData.fieldOptions.get(variant);
-        if (options) {
-          return options;
-        }
-      }
-      return null;
-    },
-    getFieldApiConfig: (fieldKey: string) => {
-      const variants = getFieldKeyVariants(fieldKey);
-      for (const variant of variants) {
-        const apiConfig = processedData.fieldApiConfig.get(variant);
-        if (apiConfig) {
-          return apiConfig;
-        }
-      }
-      return null;
-    },
-    hasApiConfig: (fieldKey: string) => {
-      //@ts-ignore
-      return !!this.getFieldApiConfig(fieldKey);
-    },
-  };
-};
-
-const isImageFile = (fileNameOrUrl?: string) => {
-  if (!fileNameOrUrl || typeof fileNameOrUrl !== "string") return false; // Ensure it's a valid string
-
-  const imageExtensions = ["png", "jpg", "jpeg", "webp", "svg"];
-
-  try {
-    const url = new URL(fileNameOrUrl); // Check if it's a valid URL
-    const decodedPath = decodeURIComponent(url.pathname.toLowerCase()); // Decode and normalize
-    return imageExtensions.some((ext) => decodedPath.endsWith(`.${ext}`));
-  } catch (e) {
-    // Not a valid URL, treat it as a filename
-    const fileExtension = fileNameOrUrl.split(".").pop()?.toLowerCase();
-    return fileExtension ? imageExtensions.includes(fileExtension) : false;
-  }
-};
-
-function formatTitle(title: string) {
-  return title
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+  QueryClient,
+  QueryClientProvider,
+  useMutation,
+  useQueries,
+  useQuery,
+} from "@tanstack/react-query";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import React from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
+import { DynamicFormProps } from "@/types/NestedFieldConfig";
+
+function getValueByPath(obj: any, path: string) {
+  return path
+    .replace(/\[(\d+)]/g, ".$1") // convert [0] to .0
+    .split(".")
+    .reduce((acc, part) => acc?.[part], obj);
 }
 
 const getValidationSchema = (fields: any) => {
@@ -917,17 +162,6 @@ const getValidationSchema = (fields: any) => {
   return z.object(schema);
 };
 
-interface FormData {
-  [key: string]: any;
-}
-
-interface DynamicFormProps {
-  suppliedId?: string | null;
-  fixedParents?: any;
-  fetchLink?: any;
-  formDataSupplied?: FormData;
-}
-
 // Helper function to check if field is a fixed parent
 const isFixedParentField = (fieldKey: any, fixedParents: any[]) => {
   return fixedParents?.some((parent) => parent.key === fieldKey) || false;
@@ -938,31 +172,36 @@ const getFixedParentData = (fieldKey: string, fixedParents: any[]) => {
   return fixedParents?.find((parent) => parent.key === fieldKey)?.details;
 };
 
+const getDataFromRoute = async (route: string) => {
+  const response = await crAxios.get(route);
+  return response.data;
+};
+
 export const DynamicForm: React.FC<DynamicFormProps> = ({
   suppliedId,
   fixedParents,
   fetchLink,
   formDataSupplied,
 }) => {
-  const [submitFormState, setSubmitFormState] = React.useState("submit");
   const router = useRouter();
   const { slug } = useParams();
   const pathname = usePathname();
+  const queryClient = new QueryClient();
+
+  const dataFilledRef = React.useRef(false);
+  const editor = React.useRef<any>(null);
+
+  const [multiSelectData, setMultiSelectData] = React.useState({});
+  const [submitFormState, setSubmitFormState] = React.useState("submit");
   const [showPassword, setShowPassword] = React.useState(false);
   const [files, setFiles] = React.useState<Record<string, File[]>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [formReady, setFormReady] = React.useState({});
-  const queryClient = new QueryClient();
   const [stableDynamicFields, setStableDynamicFields] = React.useState<
     Map<string, any>
   >(new Map());
   const [singleSelectStaticOptions, setSingleSelectStaticOptions] =
     React.useState({});
-  const [scorecardData, setScorecardData] = React.useState({
-    fixtureId: null,
-    teamOneId: null,
-    teamTwoId: null,
-  });
   const [arrayItemsState, setArrayItemsState] = React.useState<
     Record<string, number[]>
   >({});
@@ -995,25 +234,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     return processedLink;
   };
 
-  // Add state to control scorecard upload visibility
-  const [showScorecardUpload, setShowScorecardUpload] = React.useState(false);
-
-  // ... (keep all your existing code until the return statement)
-
-  // Add a function to check if all required scorecard data is filled
-  const isScoreCardDataComplete = React.useMemo(() => {
-    return (
-      scorecardData.fixtureId &&
-      scorecardData.teamOneId &&
-      scorecardData.teamTwoId
-    );
-  }, [scorecardData]);
-
-  const getDataFromRoute = async (route: string) => {
-    const response = await crAxios.get(route);
-    return response.data;
-  };
-
   const postDetailsApi = async (data: any) => {
     const response = await crAxios.post(
       `${viewData.displayModel.actions.add.actionRoute}`,
@@ -1032,22 +252,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   // Function to get files for a specific key
   const getFilesForKey = (key: string): File[] => {
     return files[key] || [];
-  };
-
-  // Function to remove a specific file from a key
-  const removeFileFromKey = (key: string, fileIndex: number) => {
-    setFiles((prev) => ({
-      ...prev,
-      [key]: (prev[key] || []).filter((_, index) => index !== fileIndex),
-    }));
-  };
-
-  // Function to clear all files for a specific key
-  const clearFilesForKey = (key: string) => {
-    setFiles((prev) => ({
-      ...prev,
-      [key]: [],
-    }));
   };
 
   const putDetailsApi = async (data: any) => {
@@ -1159,6 +363,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       toast.error("Unable to uplaod images!");
     },
   });
+
   const {
     data: viewData,
     isLoading,
@@ -1169,9 +374,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     queryFn: () => getDetailsApi(1, 0, "DESC", fetchLink),
     gcTime: 0,
   });
-
-  const [multiSelectData, setMultiSelectData] = React.useState({});
-  const editor = React.useRef<any>(null);
 
   // Only create validation schema once viewData is available
   const validationSchema = React.useMemo(() => {
@@ -1191,21 +393,12 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     viewData?.displayModel?.formFields || [],
     formValues
   );
-  const {
-    visibleFields,
-    dynamicFields,
-    fieldOptions,
-    isFieldVisible,
-    getDynamicField,
-    getFieldOptions,
-  } = useSyncProcessor(
+  const { visibleFields, dynamicFields } = useSyncProcessor(
     viewData?.displayModel?.formFields || [], // The form field configuration
     formValues // Current form values
   );
-  const dataFilledRef = React.useRef(false);
 
   React.useEffect(() => {
-    // Update stable dynamic fields in a separate effect to avoid render-time changes
     setStableDynamicFields(new Map(dynamicFields));
   }, [dynamicFields]);
 
@@ -1237,10 +430,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             // For file fields, use populatedKey if available, otherwise fall back to key
             const dataKey = populatedKey || key;
             acc[key] = formDataSupplied?.[dataKey] || null;
-            console.log(
-              `File field ${key}: using ${dataKey}, value:`,
-              acc[key]
-            );
           } else if (type === "filegallery") {
             acc[key] = formDataSupplied?.[key] ?? null;
 
@@ -1259,13 +448,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
                   : [],
             }));
           } else if (type === "singleselectstatic") {
-            console.log(key);
-            console.log("Here single select static key");
             const value = formDataSupplied?.[key];
             acc[key] = value;
           } else if (type === "multiselectstatic") {
-            console.log(key);
-            console.log("Here single select static key");
             const value = formDataSupplied?.[key];
             acc[key] = value;
           } else if (type === "time") {
@@ -1278,16 +463,12 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           } else if (type === "hidden") {
             acc[key] = formDataSupplied?.[key] ?? defaultValue;
           } else {
-            console.log(key);
-
             acc[key] = formDataSupplied?.[key] ?? "";
           }
           return acc;
         },
         {}
       );
-      console.log(newDefaultValues);
-      console.log("New default values");
       form.reset(newDefaultValues); // ✅ Dynamically update form values
       if (newDefaultValues) {
         setFormReady(newDefaultValues);
@@ -1365,11 +546,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         });
       }
     });
-
-    console.log("🔄 MultiSelect fields updated:");
-    console.log("📋 Static fields:", staticFields.length);
-    console.log("✨ Dynamic fields:", dynamicMultiSelectFields.length);
-
     return [...staticFields, ...dynamicMultiSelectFields];
   }, [viewData, stableDynamicFields, visibleFields, syncProcessor]);
 
@@ -1424,8 +600,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
   }, [viewData]);
 
   //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-  const transformQueryData = React.useCallback((data, dataToShow) => {
+  const transformQueryData = React.useCallback((data, restrictedData, dataToShow) => {
     if (!data || data.length <= 0 || !dataToShow) return [{}];
+     const restrictedIds = new Set(restrictedData?.map((item:any) => item.id) || []);
     //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
     return data.map((item) => {
       // Get label by joining the specified fields
@@ -1447,6 +624,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       return {
         value: item.id,
         label: label || "Untitled", // Fallback if no fields are available
+        isRestricted: restrictedIds.has(item.id)
       };
     });
   }, []);
@@ -1467,29 +645,11 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
     return value;
   };
-  //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-  const findMatchingOptions = React.useCallback((options, fieldValues) => {
-    if (!Array.isArray(fieldValues) || !Array.isArray(options)) return [];
-    console.log(JSON.stringify(fieldValues));
-    // Extract IDs from fieldValues objects
-    let fieldValueIds = fieldValues.map((item) => item.id);
-    if (!fieldValueIds[0]) {
-      fieldValueIds = fieldValues.map((item) => item.value);
-    }
-    // Find matching options based on the IDs
-    const matchingValues = options.filter((option) =>
-      fieldValueIds.includes(option.value)
-    );
-
-    return matchingValues;
-  }, []);
 
   const findMatchingOptionsForSingleSelect = React.useCallback(
     //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
     (options, fieldValues) => {
       if (!Array.isArray(options)) return [];
-      console.log(JSON.stringify(fieldValues));
-      // Extract IDs from fieldValues objects
       let fieldValueIds = fieldValues.id;
       if (!fieldValueIds) {
         fieldValueIds = fieldValues.value;
@@ -1498,54 +658,11 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       const matchingValues = options.filter(
         (option) => fieldValueIds === option.value
       );
-
-      console.log("Field Value IDs:", fieldValueIds);
-      console.log("Matching Values:", matchingValues);
-
       return matchingValues[0];
     },
     [slug]
   );
   // Check if all fields have data
-  const isDataComplete = React.useCallback(
-    (data: any) => {
-      if (!multiSelectFields.length) return false;
-      return multiSelectFields.every(
-        (field: any) => data[field.key] && data[field.key].length > 0
-      );
-    },
-    [multiSelectFields]
-  );
-
-  const handleDataUpdate = React.useCallback(
-    (key: any, transformedData: any) => {
-      console.log("🔄 Data update triggered for:", key);
-      setMultiSelectData((prev) => {
-        const newData = {
-          ...prev,
-          [key]: transformedData,
-        };
-
-        // Clean up data for fields that are no longer visible
-        const currentFieldKeys = multiSelectFields.map((f) => f.key);
-        Object.keys(newData).forEach((dataKey) => {
-          if (!currentFieldKeys.includes(dataKey)) {
-            console.log("🧹 Cleaning up data for removed field:", dataKey);
-            //@ts-ignore
-            delete newData[dataKey];
-          }
-        });
-
-        // If all current fields have data, mark as filled
-        if (isDataComplete(newData)) {
-          dataFilledRef.current = true;
-        }
-
-        return newData;
-      });
-    },
-    [isDataComplete, multiSelectFields]
-  );
 
   const processLinkInsideQueriesConfig = (
     dataRoute: string,
@@ -1567,13 +684,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
   const handleDataUpdateWithValidation = React.useCallback(
     (key: string, transformedData: any[], originalFieldKey: string) => {
-      console.log(
-        "🔄 Data update with validation for:",
-        key,
-        "original field:",
-        originalFieldKey
-      );
-
       // Validate the transformed data
       if (!Array.isArray(transformedData) || transformedData.length === 0) {
         console.warn(
@@ -1605,17 +715,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
         Object.keys(newData).forEach((dataKey) => {
           if (!allValidKeys.includes(dataKey)) {
-            console.log("🧹 Cleaning up data for removed field:", dataKey);
             //@ts-ignore
             delete newData[dataKey];
           }
-        });
-
-        // Log the update for debugging
-        console.log("📊 MultiSelect data updated:", {
-          key,
-          dataLength: transformedData.length,
-          totalKeys: Object.keys(newData).length,
         });
 
         return newData;
@@ -1626,11 +728,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
   const queriesConfig = useDeepCompareMemo(() => {
     if (!viewData || !multiSelectFields.length) return [];
-
-    console.log(
-      "🔄 Rebuilding queries config for fields:",
-      multiSelectFields.map((f) => f.key)
-    );
 
     return multiSelectFields.map(
       ({ key, dataRoute, dataToShow, sync, populatedKey }) => {
@@ -1685,10 +782,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           return {
             queryKey: stableQueryKey,
             queryFn: async () => {
-              console.log(
-                `🌐 Fetching dynamic data for ${key} from:`,
-                dynamicConfig.dataRoute
-              );
               const url = processLinkInsideQueriesConfig(
                 dynamicConfig.dataRoute,
                 dynamicConfig.filterParams
@@ -1708,13 +801,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               Math.min(1000 * 2 ** attemptIndex, 30000),
             onSuccess: (data: any) => {
               if (!data) return;
-              console.log(
-                `✅ Dynamic data loaded for ${key}:`,
-                data.mainData?.length || 0,
-                "items"
-              );
               const transformedData = transformQueryData(
-                data.mainData,
+                data.mainData||[],
+                data.restrictedData||[],
                 dynamicConfig.dataToShow || finalDataToShow
               );
               // FIX: Use a more robust data update mechanism
@@ -1745,7 +834,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           return {
             queryKey: apiConfigQueryKey,
             queryFn: async () => {
-              console.log("🌐 Fetching API config data from:", finalDataRoute);
               return getDataFromRoute(processLink(finalDataRoute, null));
             },
             enabled: !!(viewData && finalDataRoute && visibleFields.has(key)),
@@ -1755,13 +843,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               Math.min(1000 * 2 ** attemptIndex, 30000),
             onSuccess: (data: any) => {
               if (!data) return;
-              console.log(
-                `✅ API config data loaded for ${key}:`,
-                data.mainData?.length || 0,
-                "items"
-              );
               const transformedData = transformQueryData(
-                data.mainData,
+                data.mainData||[],
+                data.restrictedData||[],
                 finalDataToShow
               );
               handleDataUpdateWithValidation(
@@ -1783,20 +867,15 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         return {
           queryKey: [`${slug}-${key}-data`],
           queryFn: async () => {
-            console.log("🌐 Fetching static data from:", finalDataRoute);
             return getDataFromRoute(processLink(finalDataRoute, null));
           },
           enabled: !!(viewData && finalDataRoute && visibleFields.has(key)),
           staleTime: Infinity,
           onSuccess: (data: any) => {
             if (!data) return;
-            console.log(
-              `✅ Static data loaded for ${key}:`,
-              data.mainData?.length || 0,
-              "items"
-            );
             const transformedData = transformQueryData(
-              data.mainData,
+              data.mainData||[],
+              data.restrictedData||[],
               finalDataToShow
             );
             handleDataUpdateWithValidation(
@@ -1833,10 +912,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     );
 
     if (allQueriesWithData.length > 0 && viewData) {
-      console.log(
-        `📊 Processing ${allQueriesWithData.length} successful queries`
-      );
-
       allQueriesWithData.forEach((query, index) => {
         const field = multiSelectFields.find((f, i) => {
           // Find the corresponding field for this query
@@ -1852,6 +927,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
           const transformedData = transformQueryData(
             query.data.mainData,
+            query.data.restrictedData,
             finalDataToShow
           );
 
@@ -1887,8 +963,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     const apiConfigKeys = Array.from(syncProcessor.fieldApiConfig.keys());
 
     if (apiConfigKeys.length > 0) {
-      console.log("🔄 API config changed, invalidating related queries");
-
       apiConfigKeys.forEach((fieldKey) => {
         queryClient.invalidateQueries({
           predicate: (query) => {
@@ -1904,106 +978,12 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     queryClient,
   ]);
 
-  const transformFormDataToNested = (
-    formData: any,
-    fieldConfig: NestedFieldConfig[]
-  ): any => {
-    const result = {};
-
-    const processField = (
-      field: NestedFieldConfig,
-      data: any,
-      currentResult: any
-    ) => {
-      if (field.children && field.children.length > 0) {
-        if (field.containerType === "array") {
-          // Handle array fields
-          const arrayData = [];
-          let index = 0;
-
-          // Find all array indices in the form data
-          while (
-            data[`${field.key}[${index}]`] !== undefined ||
-            Object.keys(data).some((key) =>
-              key.startsWith(`${field.key}[${index}].`)
-            )
-          ) {
-            const itemData = {};
-
-            field.children.forEach((childField) => {
-              const childKey = `${field.key}[${index}].${childField.key}`;
-              if (data[childKey] !== undefined) {
-                if (childField.children) {
-                  processField(childField, data, itemData);
-                } else {
-                  //@ts-ignore
-                  itemData[childField.key] = data[childKey];
-                }
-              }
-            });
-
-            if (Object.keys(itemData).length > 0) {
-              arrayData.push(itemData);
-            }
-            index++;
-          }
-
-          if (arrayData.length > 0) {
-            currentResult[field.key] = arrayData;
-          }
-        } else {
-          // Handle object fields
-          const objectData = {};
-          field.children.forEach((childField) => {
-            const childKey = `${field.key}.${childField.key}`;
-            if (data[childKey] !== undefined) {
-              if (childField.children) {
-                processField(childField, data, objectData);
-              } else {
-                //@ts-ignore
-                objectData[childField.key] = data[childKey];
-              }
-            }
-          });
-
-          if (Object.keys(objectData).length > 0) {
-            currentResult[field.key] = objectData;
-          }
-        }
-      } else {
-        // Simple field
-        if (data[field.key] !== undefined) {
-          currentResult[field.key] = data[field.key];
-        }
-      }
-    };
-
-    fieldConfig.forEach((field) => processField(field, formData, result));
-
-    // Add any simple fields that aren't nested
-    Object.keys(formData).forEach((key) => {
-      //@ts-ignore
-      if (
-        !key.includes(".") &&
-        !key.includes("[") &&
-        //@ts-ignore
-        result[key] === undefined
-      ) {
-        //@ts-ignore
-        result[key] = formData[key];
-      }
-    });
-
-    return result;
-  };
-
   //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
   const onSubmit = async (data, action) => {
     try {
       setIsSubmitting(true);
       setSubmitFormState(action);
       let processedData = { ...data };
-      console.log(processedData);
       // Get field types from viewData
       const fieldTypes = viewData.displayModel.formFields.reduce(
         //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
@@ -2061,14 +1041,14 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           }
 
           const uploadedUrls = await Promise.all(
-            valuesArray.map(async (item) => {
+            valuesArray.map(async (item:any) => {
               if (item instanceof File) {
                 const uploadResponse = await uploadImageMutation.mutateAsync(
                   item
                 );
                 return uploadResponse.url;
               }
-              return item; // It's already a URL string
+              return item.id; // It's already a URL string
             })
           );
           //@ts-ignore
@@ -2132,9 +1112,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           processedData[key] = value.value;
         }
       }
-
-      console.log("final Data here");
-      console.log(processedData);
       if (formDataSupplied) {
         await putDetailsMutation.mutateAsync(processedData);
         toast.success(
@@ -2151,84 +1128,19 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     } catch (error) {
       setIsSubmitting(false);
       console.error("Form submission error:", error);
-      // toast.error("An error occurred when saving the data");
     }
-  };
-
-  const handleSelectChange = (selected: any, field: any) => {
-    const currentValues = field.value?.selectedValues || [];
-    let newValues;
-
-    if (selected.length > currentValues.length) {
-      // Adding a new value
-      const newOption = selected[selected.length - 1];
-      newValues = [...currentValues, newOption.value];
-    } else {
-      // Removing a value
-      const removedOption = currentValues.find(
-        (value: any) => !selected.map((s: any) => s.value).includes(value)
-      );
-      newValues = currentValues.filter((value: any) => value !== removedOption);
-    }
-
-    field.onChange({
-      ...field.value,
-      selectedValues: newValues,
-    });
-  };
-
-  // React.useEffect(() => {
-  //   const subscription = form.watch((values) => {
-  //     setFormValues(values);
-  //   });
-  //   return () => subscription.unsubscribe();
-  // }, [form]);
-  console.log(viewData);
-
-  const findMatchingOptionsMemo = React.useMemo(() => {
-    //@ts-ignore
-    return (options, fieldValues) => {
-      if (!Array.isArray(fieldValues) || !Array.isArray(options)) return [];
-
-      let fieldValueIds = fieldValues.map((item) => item.id);
-      if (!fieldValueIds[0]) {
-        fieldValueIds = fieldValues.map((item) => item.value);
-      }
-
-      return options.filter((option) => fieldValueIds.includes(option.value));
-    };
-  }, []);
-
-  // 4. ALTERNATIVE: If you need to memoize specific calls, do it at call site
-  //@ts-ignore
-  const useMemoizedMatchingOptions = (options, fieldValues) => {
-    return React.useMemo(() => {
-      if (!Array.isArray(fieldValues) || !Array.isArray(options)) return [];
-
-      let fieldValueIds = fieldValues.map((item) => item.id);
-      if (!fieldValueIds[0]) {
-        fieldValueIds = fieldValues.map((item) => item.value);
-      }
-
-      return options.filter((option) => fieldValueIds.includes(option.value));
-    }, [options, fieldValues]); // Memoize based on actual inputs
   };
 
   const renderFormField = React.useCallback(
     (field: any) => {
-      console.log(`🎨 Rendering field: ${field.key}`);
-
       // Check visibility
       if (
         field.sync &&
         !syncProcessor.isFieldVisible(field.key) &&
         !syncProcessor.isFieldVisible(field.key.split(".").pop()!)
       ) {
-        console.log(`❌ Field ${field.key} is not visible, skipping render`);
         return null;
       }
-
-      console.log(`✅ Field ${field.key} is visible, proceeding with render`);
 
       // Get dynamic options
       const syncOptions =
@@ -2255,15 +1167,9 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           //@ts-ignore
           const data = multiSelectData[key];
           if (data && Array.isArray(data) && data.length > 0) {
-            console.log(`✅ Found API data for ${field.key} under key: ${key}`);
             return data;
           }
         }
-
-        console.log(
-          `⚠️ No API data found for ${field.key}, checked keys:`,
-          keys
-        );
         return [];
       };
 
@@ -2276,29 +1182,17 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           Array.isArray(syncOptions) &&
           syncOptions.length > 0
         ) {
-          console.log(
-            `🎛️ Using sync options for ${field.key}:`,
-            syncOptions.length
-          );
           return syncOptions;
         }
 
         if (apiConfig && apiDataOptions.length > 0) {
-          console.log(
-            `🌐 Using API data options for ${field.key}:`,
-            apiDataOptions.length
-          );
           return apiDataOptions;
         }
-
-        console.log(`📝 No dynamic options for ${field.key}`);
         return null;
       })();
 
       // Log the final options being used
       if (dynamicOptions && dynamicOptions.length > 0) {
-        console.log(dynamicOptions);
-        console.log("dynamic options here");
         dynamicOptions.filter((option: any) => {
           return option.value !== suppliedId;
         });
@@ -2312,9 +1206,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
       const isFixedParent = isFixedParentField(actualField.key, fixedParents);
       const parentData = getFixedParentData(actualField.key, fixedParents);
-      console.log(actualField.key);
-      console.log(isFixedParent);
-      console.log("isFixedparent here");
 
       // Helper function for multiselect data (no useMemo)
       const getMultiselectData = () => {
@@ -2336,7 +1227,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           //@ts-ignore
           const fieldValues = actualField.key
             ? //@ts-expect-error
-              formReady[actualField.key]
+              formReady[actualField.key] ??
+              getValueByPath(formReady, actualField.key)
             : [];
 
           const formatValue = (value: any) => {
@@ -2353,7 +1245,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             }
             return [];
           };
-
           const formattedFieldValues = formatValue(fieldValues);
           if (
             !Array.isArray(formattedFieldValues) ||
@@ -2420,11 +1311,6 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             //@ts-ignore
             return formReady[lastKey!] || [];
           })();
-
-          console.log(fieldValues);
-          console.log(actualField.key);
-          console.log("Here multiselectstatic fieldvalues");
-
           const formatValue = (value: any) => {
             if (Array.isArray(value)) {
               return value.map((item) =>
@@ -2900,10 +1786,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
       if (field.sync && !syncProcessor.isFieldVisible(field.key)) {
         return;
       }
-      console.log(field.key);
-      console.log("Here dynamic field and key");
+
       const dynamicField = syncProcessor.getDynamicField(field.key);
-      console.log(dynamicField);
       const actualField: any = dynamicField || field;
 
       if (actualField.children) {

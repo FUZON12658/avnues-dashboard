@@ -4,6 +4,7 @@ import { FaChevronDown, FaX } from 'react-icons/fa6';
 type MultiSelectOption = {
   value: string;
   label: string;
+  isRestricted?:boolean;
 };
 
 type MultiSelectProps = {
@@ -23,6 +24,7 @@ const MultiSelect = ({
   disabled,
   onChange,
 }: MultiSelectProps) => {
+  console.log(options);
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -106,6 +108,7 @@ const MultiSelect = ({
 
   const handleSelect = useCallback((option: MultiSelectOption) => {
         if (disabled) return;
+        if (option.isRestricted) return;
     setSelectedValues(prev => [...prev, option.value]);
     setInputValue('');
     // Keep focus on input after selection
@@ -196,7 +199,7 @@ const MultiSelect = ({
             availableOptions.map((option) => (
               <div
                 key={option.value}
-                className="px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-surface-300"
+                className={`px-4 py-2  hover:bg-gray-100 dark:hover:bg-surface-300 ${option.isRestricted ? "cursor-not-allowed text-surface-600":"cursor-pointer"}`}
                 onClick={() => handleSelect(option)}
               >
                 {option.label}
