@@ -599,35 +599,41 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
     }
   }, [viewData]);
 
-  //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-  const transformQueryData = React.useCallback((data, restrictedData, dataToShow) => {
-    if (!data || data.length <= 0 || !dataToShow) return [{}];
-     const restrictedIds = new Set(restrictedData?.map((item:any) => item.id) || []);
+  
+  const transformQueryData = React.useCallback(
     //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-    return data.map((item) => {
-      // Get label by joining the specified fields
+    (data, restrictedData, dataToShow) => {
+      if (!data || data.length <= 0 || !dataToShow) return [{}];
+      const restrictedIds = new Set(
+        restrictedData?.map((item: any) => item.id) || []
+      );
       //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
-      const labelParts = dataToShow.map((field) => {
-        // Check if the field is nested
-        if (field.includes(".")) {
-          return renderNestedValue(item, field);
-        }
-        if (field === "date") {
-          return formatDateInNepaliTimezone(item[field], false);
-        }
-        // Otherwise, access it directly
-        return item[field] ?? "—";
+      return data.map((item) => {
+        // Get label by joining the specified fields
+        //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
+        const labelParts = dataToShow.map((field) => {
+          // Check if the field is nested
+          if (field.includes(".")) {
+            return renderNestedValue(item, field);
+          }
+          if (field === "date") {
+            return formatDateInNepaliTimezone(item[field], false);
+          }
+          // Otherwise, access it directly
+          return item[field] ?? "—";
+        });
+
+        const label = labelParts.join(" : ");
+
+        return {
+          value: item.id,
+          label: label || "Untitled", // Fallback if no fields are available
+          isRestricted: restrictedIds.has(item.id),
+        };
       });
-
-      const label = labelParts.join(" : ");
-
-      return {
-        value: item.id,
-        label: label || "Untitled", // Fallback if no fields are available
-        isRestricted: restrictedIds.has(item.id)
-      };
-    });
-  }, []);
+    },
+    []
+  );
 
   // Helper function to handle nested paths
   //@ts-expect-error nothing just bullshit typescript showing bullshit warnings
@@ -802,8 +808,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             onSuccess: (data: any) => {
               if (!data) return;
               const transformedData = transformQueryData(
-                data.mainData||[],
-                data.restrictedData||[],
+                data.mainData || [],
+                data.restrictedData || [],
                 dynamicConfig.dataToShow || finalDataToShow
               );
               // FIX: Use a more robust data update mechanism
@@ -844,8 +850,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
             onSuccess: (data: any) => {
               if (!data) return;
               const transformedData = transformQueryData(
-                data.mainData||[],
-                data.restrictedData||[],
+                data.mainData || [],
+                data.restrictedData || [],
                 finalDataToShow
               );
               handleDataUpdateWithValidation(
@@ -874,8 +880,8 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
           onSuccess: (data: any) => {
             if (!data) return;
             const transformedData = transformQueryData(
-              data.mainData||[],
-              data.restrictedData||[],
+              data.mainData || [],
+              data.restrictedData || [],
               finalDataToShow
             );
             handleDataUpdateWithValidation(
@@ -1031,28 +1037,28 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
         }
         if (fieldType === "filegallery") {
           const currentFiles = files[key]; // Get files for this specific key
-          if (!currentFiles || currentFiles.length === 0) return;
+          if (currentFiles && currentFiles.length !== 0) {
+            let valuesArray: (File | string)[];
+            if (Array.isArray(currentFiles)) {
+              valuesArray = currentFiles;
+            } else {
+              throw new Error("Invalid value type for filegallery");
+            }
 
-          let valuesArray: (File | string)[];
-          if (Array.isArray(currentFiles)) {
-            valuesArray = currentFiles;
-          } else {
-            throw new Error("Invalid value type for filegallery");
+            const uploadedUrls = await Promise.all(
+              valuesArray.map(async (item: any) => {
+                if (item instanceof File) {
+                  const uploadResponse = await uploadImageMutation.mutateAsync(
+                    item
+                  );
+                  return uploadResponse.url;
+                }
+                return item.id; // It's already a URL string
+              })
+            );
+            //@ts-ignore
+            processedData[key] = uploadedUrls;
           }
-
-          const uploadedUrls = await Promise.all(
-            valuesArray.map(async (item:any) => {
-              if (item instanceof File) {
-                const uploadResponse = await uploadImageMutation.mutateAsync(
-                  item
-                );
-                return uploadResponse.url;
-              }
-              return item.id; // It's already a URL string
-            })
-          );
-          //@ts-ignore
-          processedData[key] = uploadedUrls;
         }
         // Handle multiselect fields
         if (
