@@ -57,8 +57,8 @@ const MenuItem = memo(({
   
   const activeClasses = isActive
     ? isCollapsed
-      ? "pr-[2.55rem] bg-primary/30 text-primary border-r-2 border-primary"
-      : "bg-primary/20 text-primary border-l-4 border-primary"
+      ? "pr-[2.55rem] bg-primary/30 text-primary border-primary"
+      : "bg-primary/20 text-primary border-primary"
     : isCollapsed
     ? "pr-[2.55rem] hover:bg-surface-100 text-surface-600"
     : "hover:bg-surface-100 text-surface-600";
@@ -157,7 +157,7 @@ const MenuItem = memo(({
                     href={subItem.link}
                     className={`block py-4 transition-all ease-in-out pl-8 rounded-md ${
                       isSubItemActive
-                        ? "text-primary font-medium ml-2"
+                        ? "text-primary font-medium "
                         : "hover:text-surface-900 text-surface-800 hover:bg-surface-50"
                     } ${
                       isCollapsed
