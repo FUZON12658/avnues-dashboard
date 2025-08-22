@@ -16,7 +16,7 @@ export default function AuthComponent() {
               <ImageWithFallback src="/atv.svg" alt="avnues" imageClassname="object-contain rounded-sm" />
               </div>
             </div>
-            Avnues Media Management Platform
+            Avatar Management Platform
           </a>
         </div>
         <div className="flex flex-1 items-center justify-center">
