@@ -20,8 +20,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Yangrip Trip Admin',
-  description: 'Yangri Trip Admin',
+  title: 'Avatar Admin',
+  description: 'Avatar Admin',
 };
 
 export default async function RootLayout({
