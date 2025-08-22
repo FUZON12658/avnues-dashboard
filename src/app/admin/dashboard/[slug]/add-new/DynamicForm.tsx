@@ -119,7 +119,7 @@ const getValidationSchema = (fields: any) => {
           break;
         case "number":
           if (allowAny) {
-            fieldSchema = z.any();
+            fieldSchema = z.any().optional();
             break;
           }
           fieldSchema = z.number();

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Upload, Check, File, Folder } from 'lucide-react';
 import FileManager, {
   formatFileSize,
-  getFileIcon,
+  FileTypeIcon,
 } from '../common/filemanager';
 import {
   getFileType,
@@ -33,6 +33,8 @@ interface FileItem {
     id: string;
     file_name: string;
     mime_type: string;
+    IsProcessing: boolean;
+    optimized_links: any;
     size: number;
     path: string;
     extension: string;
@@ -361,7 +363,8 @@ export const EnhancedFileUploader: React.FC<EnhancedFileUploaderProps> = ({
             />
           ) : (
             <div className="w-12 h-12 bg-gray-200 rounded border flex items-center justify-center">
-              {getFileIcon(file)}
+                <FileTypeIcon item={file} isGridView={true} className="my-2" />
+              
             </div>
           )}
         </div>

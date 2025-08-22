@@ -1,5 +1,5 @@
-'use client';
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+"use client";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   FolderIcon,
   FileIcon,
@@ -29,21 +29,24 @@ import {
   InformationCircleIcon,
   Cancel01Icon,
   CheckmarkCircle02Icon,
-} from '@hugeicons/core-free-icons';
-import { HugeiconsIcon, IconSvgElement } from '@hugeicons/react';
+  PauseCircleFreeIcons,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon, IconSvgElement } from "@hugeicons/react";
 import {
   QueryClient,
   useMutation,
   useQuery,
   useQueryClient,
-} from '@tanstack/react-query';
+} from "@tanstack/react-query";
 import {
   createNewFolder,
   deleteFilesOrFolder,
   getFilesByFolderId,
   getTopLevelEntitiesFromFileManager,
   uploadMultipleFilesApi,
-} from '@/api/filemanager';
+  copyItemsApi,
+  moveItemsApi,
+} from "@/api/filemanager";
 import {
   // Import all your existing viewer components
   ImageViewer,
@@ -57,17 +60,18 @@ import {
   TextViewer,
   getFileType,
   FILE_TYPES,
-} from '../filemanager/filemanager-fileviewers'; // Adjust import path as needed
-import { NewFolderModal } from '../filemanager/new-folder-modal';
-import { toast } from 'sonner';
-import { UploadModal } from '../filemanager/upload-file-modal';
-import { DeleteModal } from '../filemanager/delete-modal';
+} from "../filemanager/filemanager-fileviewers"; // Adjust import path as needed
+import { NewFolderModal } from "../filemanager/new-folder-modal";
+import { toast } from "sonner";
+import { UploadModal } from "../filemanager/upload-file-modal";
+import { DeleteModal } from "../filemanager/delete-modal";
+import { PauseCircle } from "lucide-react";
 
 // Types matching your backend structure
 interface FileItem {
   id: string;
   name: string;
-  nature: 'file' | 'folder';
+  nature: "file" | "folder";
   folder_level?: string;
   size: number;
   file_id?: string;
@@ -75,6 +79,8 @@ interface FileItem {
     id: string;
     file_name: string;
     mime_type: string;
+    IsProcessing: boolean;
+    optimized_links: any;
     size: number;
     path: string;
     extension: string;
@@ -90,9 +96,9 @@ interface FileItem {
 }
 
 interface ViewConfig {
-  type: 'grid' | 'list';
-  sortBy: 'name' | 'size' | 'date_created' | 'nature';
-  sortOrder: 'asc' | 'desc';
+  type: "grid" | "list";
+  sortBy: "name" | "size" | "date_created" | "nature";
+  sortOrder: "asc" | "desc";
   showHidden: boolean;
 }
 
@@ -234,31 +240,31 @@ interface ContextMenuProps {
 
 // Utility Functions
 export const formatFileSize = (bytes?: number): string => {
-  if (!bytes) return '—';
-  const sizes = ['B', 'KB', 'MB', 'GB'];
+  if (!bytes) return "—";
+  const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
 };
 
 const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  return new Date(dateString).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 
 // Add these download functions
 const downloadSingleFile = async (file: FileItem) => {
   try {
-    const apiHost = process.env.NEXT_PUBLIC_API_HOST?.replace(/\/+$/, '');
-    const normalizedPath = (file.file?.path || '').replace(/\\/g, '/');
+    const apiHost = process.env.NEXT_PUBLIC_API_HOST?.replace(/\/+$/, "");
+    const normalizedPath = (file.file?.path || "").replace(/\\/g, "/");
     const fullUrl = `${apiHost}/${normalizedPath}`;
 
     const response = await fetch(fullUrl, {
-      mode: 'cors', // Ensure CORS mode is set
+      mode: "cors", // Ensure CORS mode is set
     });
 
     if (!response.ok) {
@@ -268,16 +274,16 @@ const downloadSingleFile = async (file: FileItem) => {
     const blob = await response.blob();
     const blobUrl = URL.createObjectURL(blob);
 
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = blobUrl;
-    link.download = file.name || 'download'; // Sets the filename
+    link.download = file.name || "download"; // Sets the filename
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
     URL.revokeObjectURL(blobUrl); // Clean up
   } catch (error) {
-    console.error('Error downloading file:', error);
+    console.error("Error downloading file:", error);
   }
 };
 
@@ -285,7 +291,7 @@ const downloadMultipleFiles = async (files: FileItem[]) => {
   try {
     // For multiple files, we'll simulate creating a zip
     // In a real implementation, you'd send the file IDs to your backend to create a zip
-    const fileNames = files.map((f) => f.name).join(', ');
+    const fileNames = files.map((f) => f.name).join(", ");
     console.log(`Creating zip archive for: ${fileNames}`);
 
     // Simulate zip creation (replace with actual API call)
@@ -295,47 +301,141 @@ const downloadMultipleFiles = async (files: FileItem[]) => {
     // In reality, you'd make an API call to create and download the zip
     alert(`Would create and download: ${zipName}\nContaining: ${fileNames}`);
   } catch (error) {
-    console.error('Error creating zip:', error);
+    console.error("Error creating zip:", error);
   }
 };
 
-export const getFileIcon = (item: FileItem) => {
-  if (item.nature === 'folder') {
+type FileIconProps = {
+  item: FileItem;
+  isGridView?: boolean;
+  className?: string;
+};
+
+export const FileTypeIcon: React.FC<FileIconProps> = ({
+  item,
+  isGridView = false,
+  className,
+}) => {
+  const [imageError, setImageError] = useState(false);
+  const apiHost = process.env.NEXT_PUBLIC_API_HOST?.replace(/\/+$/, "");
+  if (item.nature === "folder") {
     return (
       <HugeiconsIcon icon={FolderIcon} className="w-5 h-5 text-blue-500" />
     );
   }
 
-  const extension = item.file?.extension?.toLowerCase() || '';
+  if (item.file?.IsProcessing) {
+    return (
+      <div className={`${className} flex items-center justify-center`}>
+        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  const isImage = item.file?.mime_type?.startsWith("image/");
+  const hasOptimizedLinks =
+    item.file?.optimized_links &&
+    Object.keys(item.file.optimized_links).length > 0;
+
+  if (isImage && hasOptimizedLinks && !imageError && isGridView) {
+    // Try to use webp first, then fallback to other formats
+    const webpLink = item.file?.optimized_links.webp;
+    const jpg480Link = item.file?.optimized_links.jpg_480;
+
+    let thumbnailPath = null;
+    if (webpLink?.path) {
+      thumbnailPath = webpLink.path;
+    } else if (jpg480Link?.path) {
+      thumbnailPath = jpg480Link.path;
+    }
+
+    if (thumbnailPath) {
+      const normalizedPath = thumbnailPath.replace(/\\/g, "/");
+      const thumbnailUrl = `${apiHost}/${normalizedPath}`;
+
+      return (
+        <div className="relative w-full h-[6.25rem] rounded-lg overflow-hidden">
+          <img
+            src={thumbnailUrl}
+            alt={item.name}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={() => setImageError(true)}
+            loading="lazy"
+          />
+        </div>
+      );
+    }
+  }
+
+  const isVideo = item.file?.mime_type?.startsWith("video/");
+  const hasOptimizedLinksForVideo =
+    item.file?.optimized_links &&
+    Object.keys(item.file.optimized_links).length > 0;
+
+  if (isVideo && hasOptimizedLinksForVideo && !imageError && isGridView) {
+    // Try to use webp first, then fallback to other formats
+    const webpLink = item.file?.optimized_links.thumbnail;
+
+    let thumbnailPath = null;
+    if (webpLink?.path) {
+      thumbnailPath = webpLink.path;
+    }
+    if (thumbnailPath) {
+      const normalizedPath = thumbnailPath.replace(/\\/g, "/");
+      const thumbnailUrl = `${apiHost}/${normalizedPath}`;
+
+      return (
+        <div className="relative min-w-[12.25rem] h-[6.25rem] rounded-lg overflow-hidden">
+          <img
+            src={thumbnailUrl}
+            alt={item.name}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={() => setImageError(true)}
+            loading="lazy"
+          />
+          <div className="absolute top-0 left-0 bg-black/30 w-full h-full"></div>
+
+          {/* Triangular Play Icon */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center transition-all duration-300 group-hover:bg-white/30 group-hover:scale-110">
+              <div className="w-0 h-0 border-l-[12px] border-l-white border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent ml-1"></div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  const extension = item.file?.extension?.toLowerCase() || "";
   const iconMap: Record<string, React.ReactNode> = {
-    '.pdf': <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-red-500" />,
-    '.doc': <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-blue-600" />,
-    '.docx': (
+    ".pdf": <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-red-500" />,
+    ".doc": <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-blue-600" />,
+    ".docx": (
       <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-blue-600" />
     ),
-    '.xls': (
+    ".xls": (
       <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-green-600" />
     ),
-    '.xlsx': (
+    ".xlsx": (
       <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-green-600" />
     ),
-    '.ppt': (
+    ".ppt": (
       <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-orange-600" />
     ),
-    '.pptx': (
+    ".pptx": (
       <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-orange-600" />
     ),
-    '.txt': <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-gray-500" />,
-    '.jpg': (
+    ".txt": <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-gray-500" />,
+    ".jpg": (
       <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-purple-500" />
     ),
-    '.jpeg': (
+    ".jpeg": (
       <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-purple-500" />
     ),
-    '.png': (
+    ".png": (
       <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-purple-500" />
     ),
-    '.gif': (
+    ".gif": (
       <HugeiconsIcon icon={FileIcon} className="w-5 h-5 text-purple-500" />
     ),
   };
@@ -365,19 +465,19 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
     };
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscape);
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
     };
   }, [isOpen, onClose]);
 
@@ -420,56 +520,56 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
 
   const menuItems = [
     {
-      icon: item.nature === 'folder' ? FolderIcon : FileIcon,
-      label: 'Open',
-      action: 'open',
-      className: ' hover:bg-surface-100',
+      icon: item.nature === "folder" ? FolderIcon : FileIcon,
+      label: "Open",
+      action: "open",
+      className: " hover:bg-surface-100",
     },
     {
       icon: Copy01Icon,
-      label: 'Copy',
-      action: 'copy',
-      className: ' hover:bg-surface-100',
+      label: "Copy",
+      action: "copy",
+      className: " hover:bg-surface-100",
     },
     {
       icon: Move01Icon,
-      label: 'Move',
-      action: 'move',
-      className: ' hover:bg-surface-100',
+      label: "Move",
+      action: "move",
+      className: " hover:bg-surface-100",
     },
     {
       icon: Share08Icon,
-      label: 'Share',
-      action: 'share',
-      className: ' hover:bg-surface-100',
+      label: "Share",
+      action: "share",
+      className: " hover:bg-surface-100",
     },
     {
       icon: Edit02Icon,
-      label: 'Rename',
-      action: 'rename',
-      className: ' hover:bg-surface-100',
+      label: "Rename",
+      action: "rename",
+      className: " hover:bg-surface-100",
     },
-    ...(item.nature === 'file'
+    ...(item.nature === "file"
       ? [
           {
             icon: Download01Icon,
-            label: 'Download',
-            action: 'download',
-            className: ' hover:bg-surface-100',
+            label: "Download",
+            action: "download",
+            className: " hover:bg-surface-100",
           },
         ]
       : []),
     {
       icon: InformationCircleIcon,
-      label: 'Properties',
-      action: 'properties',
-      className: ' hover:bg-surface-100 pb-4',
+      label: "Properties",
+      action: "properties",
+      className: " hover:bg-surface-100 pb-4",
     },
     {
       icon: Delete01Icon,
-      label: 'Delete',
-      action: 'delete',
-      className: 'text-red-600 hover:bg-surface-200 border-t border-border',
+      label: "Delete",
+      action: "delete",
+      className: "text-red-600 hover:bg-surface-200 border-t border-border",
     },
   ];
 
@@ -482,8 +582,8 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
         top: adjustedPosition.y,
         visibility:
           adjustedPosition.x === position.x && adjustedPosition.y === position.y
-            ? 'visible'
-            : 'visible',
+            ? "visible"
+            : "visible",
       }}
     >
       {menuItems.map((menuItem, index) => (
@@ -522,11 +622,11 @@ const SettingsDropdown: React.FC<{
     };
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isOpen, onClose]);
 
@@ -545,8 +645,8 @@ const SettingsDropdown: React.FC<{
             <input
               type="radio"
               name="view-type"
-              checked={viewConfig.type === 'grid'}
-              onChange={() => onViewChange({ type: 'grid' })}
+              checked={viewConfig.type === "grid"}
+              onChange={() => onViewChange({ type: "grid" })}
               className="w-4 h-4 text-blue-600"
             />
             <HugeiconsIcon
@@ -559,8 +659,8 @@ const SettingsDropdown: React.FC<{
             <input
               type="radio"
               name="view-type"
-              checked={viewConfig.type === 'list'}
-              onChange={() => onViewChange({ type: 'list' })}
+              checked={viewConfig.type === "list"}
+              onChange={() => onViewChange({ type: "list" })}
               className="w-4 h-4 text-blue-600"
             />
             <HugeiconsIcon icon={MenuIcon} className="w-4 h-4 text-gray-500" />
@@ -574,14 +674,14 @@ const SettingsDropdown: React.FC<{
         <h3 className="text-sm font-medium mb-3">Sort by</h3>
         <div className="space-y-2">
           {[
-            { value: 'name', label: 'Name', icon: SortByUp01Icon },
+            { value: "name", label: "Name", icon: SortByUp01Icon },
             {
-              value: 'date_created',
-              label: 'Date created',
+              value: "date_created",
+              label: "Date created",
               icon: Calendar01Icon,
             },
-            { value: 'size', label: 'Size', icon: ArrowUp01Icon },
-            { value: 'nature', label: 'Type', icon: File01Icon },
+            { value: "size", label: "Size", icon: ArrowUp01Icon },
+            { value: "nature", label: "Type", icon: File01Icon },
           ].map((option) => (
             <label
               key={option.value}
@@ -612,8 +712,8 @@ const SettingsDropdown: React.FC<{
             <input
               type="radio"
               name="sort-order"
-              checked={viewConfig.sortOrder === 'asc'}
-              onChange={() => onViewChange({ sortOrder: 'asc' })}
+              checked={viewConfig.sortOrder === "asc"}
+              onChange={() => onViewChange({ sortOrder: "asc" })}
               className="w-4 h-4 text-blue-600"
             />
             <HugeiconsIcon
@@ -626,8 +726,8 @@ const SettingsDropdown: React.FC<{
             <input
               type="radio"
               name="sort-order"
-              checked={viewConfig.sortOrder === 'desc'}
-              onChange={() => onViewChange({ sortOrder: 'desc' })}
+              checked={viewConfig.sortOrder === "desc"}
+              onChange={() => onViewChange({ sortOrder: "desc" })}
               className="w-4 h-4 text-blue-600"
             />
             <HugeiconsIcon
@@ -678,22 +778,61 @@ const FileManagerHeader: React.FC<{
   return (
     <div className="bg-background border-b border-border sticky top-0 z-30">
       {/* Main Header */}
-      <div className="px-8 py-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="px-8 py-[1.125rem]">
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">File Manager</h1>
-            <p className="mt-2 text-gray-400">Organize and manage your files</p>
+            <p className="text-gray-400">Organize and manage your files</p>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            {/* Search */}
+            <div className="flex-2 w-[24.5rem] max-w-[24.5rem]">
+              <div className="relative">
+                <HugeiconsIcon
+                  icon={Search01Icon}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Search files and folders..."
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Tools */}
+            <div className="flex items-center gap-3">
+              {/* Settings Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                  className="flex items-center gap-2 px-4 py-3 border border-border rounded-lg hover:bg-surface-100 transition-all text-sm font-medium"
+                >
+                  <HugeiconsIcon icon={Settings02Icon} className="w-4 h-4" />
+                  <HugeiconsIcon icon={ArrowDown01Icon} className="w-3 h-3" />
+                </button>
+
+                <SettingsDropdown
+                  viewConfig={viewConfig}
+                  onViewChange={onViewChange}
+                  isOpen={isSettingsOpen}
+                  onClose={() => setIsSettingsOpen(false)}
+                />
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <button
-              onClick={() => onAction('upload')}
+              onClick={() => onAction("upload")}
               className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all shadow-sm"
             >
               <HugeiconsIcon icon={Upload01Icon} className="w-4 h-4" />
               Upload
             </button>
             <button
-              onClick={() => onAction('newfolder')}
+              onClick={() => onAction("newfolder")}
               className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm"
             >
               <HugeiconsIcon icon={Add01Icon} className="w-4 h-4" />
@@ -703,45 +842,6 @@ const FileManagerHeader: React.FC<{
         </div>
 
         {/* Search and Tools Bar */}
-        <div className="flex items-center justify-between gap-6">
-          {/* Search */}
-          <div className="flex-1 max-w-md">
-            <div className="relative">
-              <HugeiconsIcon
-                icon={Search01Icon}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
-              />
-              <input
-                type="text"
-                placeholder="Search files and folders..."
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Tools */}
-          <div className="flex items-center gap-3">
-            {/* Settings Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                className="flex items-center gap-2 px-4 py-3 border border-border rounded-lg hover:bg-surface-100 transition-all text-sm font-medium"
-              >
-                <HugeiconsIcon icon={Settings02Icon} className="w-4 h-4" />
-                <HugeiconsIcon icon={ArrowDown01Icon} className="w-3 h-3" />
-              </button>
-
-              <SettingsDropdown
-                viewConfig={viewConfig}
-                onViewChange={onViewChange}
-                isOpen={isSettingsOpen}
-                onClose={() => setIsSettingsOpen(false)}
-              />
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Selection Bar */}
@@ -749,32 +849,32 @@ const FileManagerHeader: React.FC<{
         <div className="px-8 py-4 bg-background border my-4 mx-6 rounded-md border-border">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-blue-300">
-              {selectedCount} item{selectedCount > 1 ? 's' : ''} selected
+              {selectedCount} item{selectedCount > 1 ? "s" : ""} selected
             </span>
             <div className="flex gap-3">
               <button
-                onClick={() => onAction('copy')}
+                onClick={() => onAction("copy")}
                 className="flex items-center gap-2 px-4 py-2 text-sm bg-white border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition-all"
               >
                 <HugeiconsIcon icon={Copy01Icon} className="w-4 h-4" />
                 Copy
               </button>
               <button
-                onClick={() => onAction('move')}
+                onClick={() => onAction("move")}
                 className="flex items-center gap-2 px-4 py-2 text-sm bg-white border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition-all"
               >
                 <HugeiconsIcon icon={Move01Icon} className="w-4 h-4" />
                 Move
               </button>
               <button
-                onClick={() => onAction('share')}
+                onClick={() => onAction("share")}
                 className="flex items-center gap-2 px-4 py-2 text-sm bg-white border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition-all"
               >
                 <HugeiconsIcon icon={Share08Icon} className="w-4 h-4" />
                 Share
               </button>
               <button
-                onClick={() => onAction('delete')}
+                onClick={() => onAction("delete")}
                 className="flex items-center gap-2 px-4 py-2 text-sm bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-50 transition-all"
               >
                 <HugeiconsIcon icon={Delete01Icon} className="w-4 h-4" />
@@ -833,8 +933,8 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({
               onClick={() => handleNavigate(actualIndex)}
               className={`px-2 py-1 mt-[0.125rem] text-sm rounded-md transition-all ${
                 isLast
-                  ? 'bg-primary-100 text-primary-700 font-medium'
-                  : 'hover:bg-surface-200'
+                  ? "bg-primary-100 text-primary-700 font-medium"
+                  : "hover:bg-surface-200"
               }`}
               disabled={isLast}
             >
@@ -848,6 +948,315 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({
 };
 
 // Grid View Component
+// const GridView: React.FC<{
+//   files: FileItem[];
+//   selectedIds: Set<string>;
+//   onSelect: (id: string, multi?: boolean, shift?: boolean) => void;
+//   onDoubleClick: (item: FileItem) => void;
+//   onContextMenu: (event: React.MouseEvent, item: FileItem) => void;
+// }> = ({ files, selectedIds, onSelect, onDoubleClick, onContextMenu }) => {
+//   return (
+//     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 p-6 h-[31.25rem]">
+//       {files.map((item) => (
+//         <div
+//           key={item.id}
+//           className={`group relative p-4 rounded-lg bg-background border-2 transition-all cursor-pointer hover:shadow-md ${
+//             selectedIds.has(item.id)
+//               ? "border-blue-500 bg-surface-300"
+//               : "border-border hover:border-gray-300"
+//           }`}
+//           onClick={(e) => onSelect(item.id, e.ctrlKey || e.metaKey, e.shiftKey)}
+//           onDoubleClick={() => onDoubleClick(item)}
+//           onContextMenu={(e) => onContextMenu(e, item)}
+//         >
+//           {/* Selection checkbox */}
+//           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+//             <input
+//               type="checkbox"
+//               checked={selectedIds.has(item.id)}
+//               onChange={() => onSelect(item.id, true)}
+//               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+//               onClick={(e) => e.stopPropagation()}
+//             />
+//           </div>
+
+//           {/* File/Folder icon */}
+//           <div className="flex flex-col items-center text-center">
+//             <div className="min-w-[100%] min-h-[100%] flex items-center justify-center mb-2">
+//               {getFileIcon(item, true)}
+//             </div>
+
+//             <div className="w-full">
+//               <p className="text-sm font-medium truncate mb-1">{item.name}</p>
+//               <p className="text-xs text-gray-400">
+//                 {item.nature === "file" ? formatFileSize(item.size) : "Folder"}
+//               </p>
+//               <p className="text-xs text-gray-400 mt-1">
+//                 {formatDate(item.date_created)}
+//               </p>
+//             </div>
+//           </div>
+//         </div>
+//       ))}
+//     </div>
+//   );
+// };
+
+const FolderSelectionModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onSelect: (folderId: string | null, folderName: string) => void;
+  title: string;
+  currentFolderId?: string | null;
+}> = ({ isOpen, onClose, onSelect, title, currentFolderId }) => {
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [selectedFolderName, setSelectedFolderName] = useState<string>("Root");
+  const [currentPath, setCurrentPath] = useState<string[]>(["Root"]);
+  const [pathWithIds, setPathWithIds] = useState<
+    Array<{ name: string; id: string | null }>
+  >([{ name: "Root", id: null }]);
+
+  // Fetch folders for current location
+  const { data: folders, isLoading } = useQuery({
+    queryFn: () => {
+      if (selectedFolderId === null) {
+        return getTopLevelEntitiesFromFileManager();
+      } else {
+        return getFilesByFolderId(selectedFolderId);
+      }
+    },
+    queryKey: ["folder-selection", selectedFolderId],
+    gcTime: 0,
+    staleTime: 0,
+    select: (data) => {
+      if (selectedFolderId === null) {
+        return data.data.items.filter((item: any) => item.nature === "folder");
+      } else {
+        const folderInfo = data.data;
+        return (folderInfo.children || []).filter(
+          (item: any) => item.nature === "folder"
+        );
+      }
+    },
+    enabled: isOpen,
+  });
+
+  const handleFolderClick = (folder: any) => {
+    const newPath = [...currentPath, folder.name];
+    const newPathWithIds = [
+      ...pathWithIds,
+      { name: folder.name, id: folder.id },
+    ];
+
+    setCurrentPath(newPath);
+    setPathWithIds(newPathWithIds);
+    setSelectedFolderId(folder.id);
+    setSelectedFolderName(folder.name);
+  };
+
+  const handleBreadcrumbClick = (index: number) => {
+    const targetPath = currentPath.slice(0, index + 1);
+    const targetPathWithIds = pathWithIds.slice(0, index + 1);
+
+    setCurrentPath(targetPath);
+    setPathWithIds(targetPathWithIds);
+    setSelectedFolderId(targetPathWithIds[index].id);
+    setSelectedFolderName(targetPathWithIds[index].name);
+  };
+
+  const handleConfirm = () => {
+    onSelect(selectedFolderId, selectedFolderName);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-hidden">
+        <div className="p-6 border-b">
+          <h3 className="text-lg font-semibold">{title}</h3>
+        </div>
+
+        {/* Breadcrumb */}
+        <div className="px-6 py-3 bg-gray-50 border-b">
+          <div className="flex items-center gap-2 text-sm">
+            {currentPath.map((segment, index) => (
+              <React.Fragment key={index}>
+                {index > 0 && (
+                  <HugeiconsIcon
+                    icon={ArrowRight01Icon}
+                    className="w-3 h-3 text-gray-400"
+                  />
+                )}
+                <button
+                  onClick={() => handleBreadcrumbClick(index)}
+                  className={`hover:text-blue-600 ${
+                    index === currentPath.length - 1
+                      ? "font-medium text-blue-600"
+                      : "text-gray-600"
+                  }`}
+                >
+                  {segment}
+                </button>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
+        {/* Folder List */}
+        <div className="p-4 max-h-64 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent"></div>
+            </div>
+          ) : folders?.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No folders found
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {folders?.map((folder: any) => (
+                <button
+                  key={folder.id}
+                  onClick={() => handleFolderClick(folder)}
+                  disabled={folder.id === currentFolderId}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${
+                    folder.id === currentFolderId
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "hover:bg-gray-100"
+                  }`}
+                >
+                  <HugeiconsIcon
+                    icon={FolderIcon}
+                    className="w-5 h-5 text-blue-500"
+                  />
+                  <span className="font-medium">{folder.name}</span>
+                  {folder.id === currentFolderId && (
+                    <span className="text-xs text-gray-400 ml-auto">
+                      (Current)
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="p-6 border-t bg-gray-50 flex justify-between">
+          <div className="text-sm text-gray-600">
+            Selected: <span className="font-medium">{selectedFolderName}</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirm}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CopyMoveModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (
+    destinationFolderId: string | null,
+    destinationFolderName: string
+  ) => void;
+  type: "copy" | "move";
+  files: FileItem[];
+  isProcessing: boolean;
+  currentFolderId?: string | null;
+}> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  type,
+  files,
+  isProcessing,
+  currentFolderId,
+}) => {
+  if (!isOpen) return null;
+
+  const title = type === "copy" ? "Copy Items" : "Move Items";
+  const actionText = type === "copy" ? "Copy to" : "Move to";
+  const itemCount = files.length;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div className="p-6 border-b">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">{title}</h3>
+            <button
+              onClick={onClose}
+              disabled={isProcessing}
+              className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+            >
+              <HugeiconsIcon icon={Cancel01Icon} className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-600 mb-2">
+              {actionText} {itemCount} item{itemCount > 1 ? "s" : ""}:
+            </p>
+            <div className="max-h-24 overflow-y-auto">
+              {files.slice(0, 3).map((file, index) => (
+                <div
+                  key={file.id}
+                  className="flex items-center gap-2 text-sm py-1"
+                >
+                  <FileTypeIcon item={file} className="flex-shrink-0" />
+                  <span className="truncate">{file.name}</span>
+                </div>
+              ))}
+              {files.length > 3 && (
+                <div className="text-xs text-gray-500 mt-1">
+                  ...and {files.length - 3} more items
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4">
+          <FolderSelectionModal
+            isOpen={true}
+            onClose={onClose}
+            onSelect={onConfirm}
+            title={`Select destination folder`}
+            currentFolderId={type === "move" ? currentFolderId : undefined}
+          />
+        </div>
+
+        {isProcessing && (
+          <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+              <span className="text-sm font-medium">
+                {type === "copy" ? "Copying" : "Moving"} items...
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const GridView: React.FC<{
   files: FileItem[];
   selectedIds: Set<string>;
@@ -856,14 +1265,14 @@ const GridView: React.FC<{
   onContextMenu: (event: React.MouseEvent, item: FileItem) => void;
 }> = ({ files, selectedIds, onSelect, onDoubleClick, onContextMenu }) => {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 gap-4 p-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 p-6 m">
       {files.map((item) => (
         <div
           key={item.id}
-          className={`group relative p-4 rounded-lg bg-background border-2 transition-all cursor-pointer hover:shadow-md ${
+          className={`group relative p-4 rounded-lg bg-white border transition-all cursor-pointer hover:shadow-md in-h-[15.25rem] h-[15.25rem] max-h-[15.25rem] ${
             selectedIds.has(item.id)
-              ? 'border-blue-500 bg-surface-300'
-              : 'border-border hover:border-gray-300'
+              ? "border-blue-500 bg-blue-50"
+              : "border-gray-200 hover:border-gray-300"
           }`}
           onClick={(e) => onSelect(item.id, e.ctrlKey || e.metaKey, e.shiftKey)}
           onDoubleClick={() => onDoubleClick(item)}
@@ -881,17 +1290,19 @@ const GridView: React.FC<{
           </div>
 
           {/* File/Folder icon */}
-          <div className="flex flex-col items-center text-center">
-            <div className="w-12 h-12 flex items-center justify-center mb-2">
-              {getFileIcon(item)}
+          <div className="flex flex-col items-center text-center w-full h-full justify-center">
+            <div className="mb-4 flex items-center justify-center">
+              <FileTypeIcon item={item} isGridView={true} className="my-2" />
             </div>
 
-            <div className="w-full">
-              <p className="text-sm font-medium truncate mb-1">{item.name}</p>
-              <p className="text-xs text-gray-400">
-                {item.nature === 'file' ? formatFileSize(item.size) : 'Folder'}
+            <div className="w-full space-y-1">
+              <p className="text-sm font-medium truncate">{item.name}</p>
+              <p className="text-xs text-gray-500">
+                {item.nature === "file"
+                  ? formatFileSize(item.size || 0)
+                  : "Folder"}
               </p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-400">
                 {formatDate(item.date_created)}
               </p>
             </div>
@@ -945,7 +1356,7 @@ const ListView: React.FC<{
             <tr
               key={item.id}
               className={`group border-b border-border/50 transition-all cursor-pointer hover:bg-surface-100 ${
-                selectedIds.has(item.id) ? 'bg-surface-200' : ''
+                selectedIds.has(item.id) ? "bg-surface-200" : ""
               }`}
               onClick={(e) =>
                 onSelect(item.id, e.ctrlKey || e.metaKey, e.shiftKey)
@@ -964,17 +1375,21 @@ const ListView: React.FC<{
               </td>
               <td className="px-6 py-4">
                 <div className="flex items-center gap-3">
-                  {getFileIcon(item)}
+                  <FileTypeIcon
+                    item={item}
+                    isGridView={false}
+                    className="my-2"
+                  />
                   <span className="text-sm font-medium">{item.name}</span>
                 </div>
               </td>
               <td className="px-6 py-4 text-sm ">
-                {item.nature === 'file' ? formatFileSize(item.size) : '—'}
+                {item.nature === "file" ? formatFileSize(item.size) : "—"}
               </td>
               <td className="px-6 py-4 text-sm ">
-                {item.nature === 'file'
-                  ? item.file?.extension || 'File'
-                  : 'Folder'}
+                {item.nature === "file"
+                  ? item.file?.extension || "File"
+                  : "Folder"}
               </td>
               <td className="px-6 py-4 text-sm ">
                 {formatDate(item.date_updated)}
@@ -1018,7 +1433,7 @@ const PropertiesModal: React.FC<{
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">
-              {isMultiple ? `Properties (${files.length} items)` : 'Properties'}
+              {isMultiple ? `Properties (${files.length} items)` : "Properties"}
             </h3>
             <button
               onClick={onClose}
@@ -1042,18 +1457,18 @@ const PropertiesModal: React.FC<{
                 <div>
                   <label className="block text-sm font-medium mb-1">Type</label>
                   <p className="text-sm ">
-                    {files[0].nature === 'file'
-                      ? files[0].file?.extension || 'File'
-                      : 'Folder'}
+                    {files[0].nature === "file"
+                      ? files[0].file?.extension || "File"
+                      : "Folder"}
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-1">Size</label>
                   <p className="text-sm">
-                    {files[0].nature === 'file'
+                    {files[0].nature === "file"
                       ? formatFileSize(files[0].size || 0)
-                      : '—'}
+                      : "—"}
                   </p>
                 </div>
 
@@ -1094,7 +1509,7 @@ const PropertiesModal: React.FC<{
                   <label className="block text-sm font-medium mb-1">
                     Types
                   </label>
-                  <p className="text-sm capitalize">{fileTypes.join(', ')}</p>
+                  <p className="text-sm capitalize">{fileTypes.join(", ")}</p>
                 </div>
 
                 <div>
@@ -1148,19 +1563,19 @@ const FileManager: React.FC<FileManagerProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const [files, setFiles] = useState<FileItem[]>([]);
-  const [currentPath, setCurrentPath] = useState<string[]>(['root']);
+  const [currentPath, setCurrentPath] = useState<string[]>(["root"]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   // Track folder IDs for breadcrumb navigation
   const [pathWithIds, setPathWithIds] = useState<
     Array<{ name: string; id: string | null }>
-  >([{ name: 'root', id: null }]);
+  >([{ name: "root", id: null }]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [viewConfig, setViewConfig] = useState<ViewConfig>({
-    type: 'grid',
-    sortBy: 'name',
-    sortOrder: 'asc',
+    type: "grid",
+    sortBy: "name",
+    sortOrder: "asc",
     showHidden: false,
   });
   const [contextMenu, setContextMenu] = useState<{
@@ -1208,6 +1623,17 @@ const FileManager: React.FC<FileManagerProps> = ({
     files: [],
   });
 
+  const [copyMoveModal, setCopyMoveModal] = useState<{
+    isOpen: boolean;
+    type: "copy" | "move";
+    files: FileItem[];
+  }>({
+    isOpen: false,
+    type: "copy",
+    files: [],
+  });
+
+  const [isCopyingMoving, setIsCopyingMoving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -1219,15 +1645,15 @@ const FileManager: React.FC<FileManagerProps> = ({
       await Promise.all(deletePromises);
     },
     onSuccess: () => {
-      toast.success('Files deleted successfully!');
+      toast.success("Files deleted successfully!");
       // Refresh the current folder/directory
       if (currentFolderId) {
         queryClient.invalidateQueries({
-          queryKey: ['filemanager-folder', currentFolderId],
+          queryKey: ["filemanager-folder", currentFolderId],
         });
       } else {
         queryClient.invalidateQueries({
-          queryKey: ['filemanager-top'],
+          queryKey: ["filemanager-top"],
         });
       }
       // Clear selection
@@ -1235,8 +1661,8 @@ const FileManager: React.FC<FileManagerProps> = ({
       setLastSelectedId(null);
     },
     onError: (error) => {
-      console.error('Delete failed:', error);
-      toast.error('Delete failed. Please try again.');
+      console.error("Delete failed:", error);
+      toast.error("Delete failed. Please try again.");
     },
     onSettled: () => {
       setIsDeleting(false);
@@ -1248,24 +1674,132 @@ const FileManager: React.FC<FileManagerProps> = ({
   const uploadFilesMutation = useMutation({
     mutationFn: uploadMultipleFilesApi,
     onSuccess: () => {
-      toast.success('Files uploaded successfully!');
+      toast.success("Files uploaded successfully!");
       // Refresh the current folder/directory
       if (currentFolderId) {
         queryClient.invalidateQueries({
-          queryKey: ['filemanager-folder', currentFolderId],
+          queryKey: ["filemanager-folder", currentFolderId],
         });
       } else {
         queryClient.invalidateQueries({
-          queryKey: ['filemanager-top'],
+          queryKey: ["filemanager-top"],
         });
       }
     },
     onError: (error) => {
-      console.error('Upload failed:', error);
-      toast.error('Upload failed. Please try again.');
+      console.error("Upload failed:", error);
+      toast.error("Upload failed. Please try again.");
     },
     onSettled: () => {
       setIsUploading(false);
+    },
+  });
+
+  const copyItemsMutation = useMutation({
+    mutationFn: async ({
+      itemIds,
+      sourceFolderId,
+      destinationFolderId,
+    }: {
+      itemIds: string[];
+      sourceFolderId: string | null;
+      destinationFolderId: string | null;
+    }) => {
+      return await copyItemsApi(itemIds, sourceFolderId, destinationFolderId);
+    },
+    onSuccess: (data, variables) => {
+      const itemCount = variables.itemIds.length;
+      toast.success(
+        `${itemCount} item${itemCount > 1 ? "s" : ""} copied successfully!`
+      );
+
+      // Refresh both current and destination folders
+      if (currentFolderId) {
+        queryClient.invalidateQueries({
+          queryKey: ["filemanager-folder", currentFolderId],
+        });
+      } else {
+        queryClient.invalidateQueries({
+          queryKey: ["filemanager-top"],
+        });
+      }
+
+      // Also refresh destination folder if different
+      if (variables.destinationFolderId !== currentFolderId) {
+        if (variables.destinationFolderId) {
+          queryClient.invalidateQueries({
+            queryKey: ["filemanager-folder", variables.destinationFolderId],
+          });
+        } else {
+          queryClient.invalidateQueries({
+            queryKey: ["filemanager-top"],
+          });
+        }
+      }
+    },
+    onError: (error) => {
+      console.error("Copy failed:", error);
+      toast.error("Copy failed. Please try again.");
+    },
+    onSettled: () => {
+      setIsCopyingMoving(false);
+      setCopyMoveModal({ isOpen: false, type: "copy", files: [] });
+    },
+  });
+
+  const moveItemsMutation = useMutation({
+    mutationFn: async ({
+      itemIds,
+      sourceFolderId,
+      destinationFolderId,
+    }: {
+      itemIds: string[];
+      sourceFolderId: string | null;
+      destinationFolderId: string | null;
+    }) => {
+      return await moveItemsApi(itemIds, sourceFolderId, destinationFolderId);
+    },
+    onSuccess: (data, variables) => {
+      const itemCount = variables.itemIds.length;
+      toast.success(
+        `${itemCount} item${itemCount > 1 ? "s" : ""} moved successfully!`
+      );
+
+      // Clear selection since items are moved
+      setSelectedIds(new Set());
+      setLastSelectedId(null);
+
+      // Refresh both source and destination folders
+      if (variables.sourceFolderId) {
+        queryClient.invalidateQueries({
+          queryKey: ["filemanager-folder", variables.sourceFolderId],
+        });
+      } else {
+        queryClient.invalidateQueries({
+          queryKey: ["filemanager-top"],
+        });
+      }
+
+      // Also refresh destination folder if different
+      if (variables.destinationFolderId !== variables.sourceFolderId) {
+        if (variables.destinationFolderId) {
+          queryClient.invalidateQueries({
+            queryKey: ["filemanager-folder", variables.destinationFolderId],
+          });
+        } else {
+          queryClient.invalidateQueries({
+            queryKey: ["filemanager-top"],
+          });
+        }
+      }
+    },
+    onError: (error) => {
+      console.error("Move failed:", error);
+      toast.error("Move failed. Please try again.");
+    },
+    onSettled: () => {
+      setIsCopyingMoving(false);
+      setCopyMoveModal({ isOpen: false, type: "copy", files: [] });
     },
   });
 
@@ -1276,8 +1810,10 @@ const FileManager: React.FC<FileManagerProps> = ({
     isError: isTopError,
   } = useQuery({
     queryFn: getTopLevelEntitiesFromFileManager,
-    queryKey: ['filemanager-top'],
+    queryKey: ["filemanager-top"],
     enabled: currentFolderId === null, // Only fetch when at root level
+    gcTime: 0,
+    staleTime: 0,
     select: (data) => {
       return data.data.items;
     },
@@ -1290,8 +1826,10 @@ const FileManager: React.FC<FileManagerProps> = ({
     isError: isFolderError,
   } = useQuery({
     queryFn: () => getFilesByFolderId(currentFolderId!),
-    queryKey: ['filemanager-folder', currentFolderId],
+    queryKey: ["filemanager-folder", currentFolderId],
     enabled: currentFolderId !== null, // Only fetch when inside a folder
+    gcTime: 0,
+    staleTime: 0,
     select: (data) => {
       // Transform the API response to match your FileItem structure
       const folderInfo = data.data;
@@ -1314,30 +1852,30 @@ const FileManager: React.FC<FileManagerProps> = ({
 
   const createNewFolderMutation = useMutation({
     mutationFn: createNewFolder,
-    mutationKey: ['filemanager-folder', currentFolderId],
+    mutationKey: ["filemanager-folder", currentFolderId],
     onSuccess: () => {
-      toast.success('Created folder successfully.');
+      toast.success("Created folder successfully.");
       if (currentFolderId) {
         queryClient.invalidateQueries({
-          queryKey: ['filemanager-folder', currentFolderId],
+          queryKey: ["filemanager-folder", currentFolderId],
         });
       }
 
       queryClient.invalidateQueries({
-        queryKey: ['filemanager-top'],
+        queryKey: ["filemanager-top"],
       });
     },
   });
 
   const handleNewFolder = async (data: any) => {
     try {
-      console.log('Creating new folder with data:', data);
+      console.log("Creating new folder with data:", data);
 
       // Here you would typically make an API call to create the folder
       // For now, we'll just log the FormData as requested
-      console.log('=== New Folder Creation ===');
-      console.log('Parent ID:', data.parent_id || 'root');
-      console.log('Folder Name:', data.folder_name);
+      console.log("=== New Folder Creation ===");
+      console.log("Parent ID:", data.parent_id || "root");
+      console.log("Folder Name:", data.folder_name);
 
       // Example API call (uncomment when ready to implement):
       // const response = await createFolder(data.formData);
@@ -1350,7 +1888,7 @@ const FileManager: React.FC<FileManagerProps> = ({
         parent_id: data.parent_id,
       });
     } catch (error) {
-      console.error('Failed to create folder:', error);
+      console.error("Failed to create folder:", error);
       throw error;
     }
   };
@@ -1365,18 +1903,18 @@ const FileManager: React.FC<FileManagerProps> = ({
 
       // Add parent_id if exists (now passed from UploadModal)
       if (parentId) {
-        formData.append('parent_id', parentId);
+        formData.append("parent_id", parentId);
       }
 
       // Add all selected files
       files.forEach((file) => {
-        formData.append('files', file);
+        formData.append("files", file);
       });
 
       // Call the upload mutation
       await uploadFilesMutation.mutateAsync(formData);
     } catch (error) {
-      console.error('Upload failed:', error);
+      console.error("Upload failed:", error);
       throw error; // Re-throw to let UploadModal handle the error display
     }
   };
@@ -1402,23 +1940,23 @@ const FileManager: React.FC<FileManagerProps> = ({
   // Keyboard event handler for multi-selection shortcuts
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+      if ((e.ctrlKey || e.metaKey) && e.key === "a") {
         e.preventDefault();
         handleSelectAll(true);
       }
 
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         setSelectedIds(new Set());
         setLastSelectedId(null);
       }
 
-      if (e.key === 'Delete' && selectedIds.size > 0) {
-        handleAction('delete');
+      if (e.key === "Delete" && selectedIds.size > 0) {
+        handleAction("delete");
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [selectedIds]);
 
   // Clear selection when path changes
@@ -1450,8 +1988,8 @@ const FileManager: React.FC<FileManagerProps> = ({
       setCurrentFolderId(targetPathWithId.id);
     } else {
       // Fallback to root if path not found
-      setCurrentPath(['root']);
-      setPathWithIds([{ name: 'root', id: null }]);
+      setCurrentPath(["root"]);
+      setPathWithIds([{ name: "root", id: null }]);
       setCurrentFolderId(null);
     }
 
@@ -1471,26 +2009,26 @@ const FileManager: React.FC<FileManagerProps> = ({
     );
 
     if (!viewConfig.showHidden) {
-      result = result.filter((file) => !file.name.startsWith('.'));
+      result = result.filter((file) => !file.name.startsWith("."));
     }
 
     result.sort((a, b) => {
       let aVal, bVal;
 
       switch (viewConfig.sortBy) {
-        case 'name':
+        case "name":
           aVal = a.name.toLowerCase();
           bVal = b.name.toLowerCase();
           break;
-        case 'size':
+        case "size":
           aVal = a.size || 0;
           bVal = b.size || 0;
           break;
-        case 'date_created':
+        case "date_created":
           aVal = new Date(a.date_created).getTime();
           bVal = new Date(b.date_created).getTime();
           break;
-        case 'nature':
+        case "nature":
           aVal = a.nature;
           bVal = b.nature;
           break;
@@ -1499,11 +2037,11 @@ const FileManager: React.FC<FileManagerProps> = ({
           bVal = b.name.toLowerCase();
       }
 
-      if (viewConfig.sortOrder === 'desc') {
+      if (viewConfig.sortOrder === "desc") {
         [aVal, bVal] = [bVal, aVal];
       }
 
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
+      if (typeof aVal === "string" && typeof bVal === "string") {
         return aVal.localeCompare(bVal);
       }
       return (aVal as number) - (bVal as number);
@@ -1511,8 +2049,8 @@ const FileManager: React.FC<FileManagerProps> = ({
 
     // Sort folders first
     return result.sort((a, b) => {
-      if (a.nature === 'folder' && b.nature === 'file') return -1;
-      if (a.nature === 'file' && b.nature === 'folder') return 1;
+      if (a.nature === "folder" && b.nature === "file") return -1;
+      if (a.nature === "file" && b.nature === "folder") return 1;
       return 0;
     });
   }, [files, searchQuery, viewConfig]);
@@ -1592,7 +2130,7 @@ const FileManager: React.FC<FileManagerProps> = ({
 
   // Enhanced double-click handler
   const handleDoubleClick = (item: FileItem) => {
-    if (item.nature === 'folder') {
+    if (item.nature === "folder") {
       navigateToFolder(item.id, item.name);
     } else {
       openFileViewer(item);
@@ -1624,68 +2162,64 @@ const FileManager: React.FC<FileManagerProps> = ({
     const isMultipleSelection = selectedFiles.length > 1;
 
     switch (action) {
-      case 'open':
-        if (contextMenu.item.nature === 'file') {
+      case "open":
+        if (contextMenu.item.nature === "file") {
           openFileViewer(contextMenu.item);
         } else {
           handleDoubleClick(contextMenu.item);
         }
         break;
-      case 'copy':
-        console.log(
-          `Copy ${
-            isMultipleSelection
-              ? selectedFiles.length + ' items'
-              : contextMenu.item.name
-          }`
-        );
+      case "copy":
+        setCopyMoveModal({
+          isOpen: true,
+          type: "copy",
+          files: isMultipleSelection ? selectedFiles : [contextMenu.item],
+        });
         break;
-      case 'move':
-        console.log(
-          `Move ${
-            isMultipleSelection
-              ? selectedFiles.length + ' items'
-              : contextMenu.item.name
-          }`
-        );
+      case "move":
+        setCopyMoveModal({
+          isOpen: true,
+          type: "move",
+          files: isMultipleSelection ? selectedFiles : [contextMenu.item],
+        });
         break;
-      case 'rename':
+      case "rename":
         if (isMultipleSelection) {
-          console.log('Cannot rename multiple items at once');
+          console.log("Cannot rename multiple items at once");
         } else {
-          console.log('Rename:', contextMenu.item.name);
+          console.log("Rename:", contextMenu.item.name);
         }
         break;
-      case 'delete':
+      case "delete":
         setDeleteModal({
           isOpen: true,
           files: isMultipleSelection ? selectedFiles : [contextMenu.item],
         });
         break;
-      case 'download':
+      case "download":
         if (isMultipleSelection) {
           downloadMultipleFiles(selectedFiles);
         } else {
           downloadSingleFile(contextMenu.item);
         }
         break;
-      case 'share':
+      case "share":
         console.log(
           `Share ${
             isMultipleSelection
-              ? selectedFiles.length + ' items'
+              ? selectedFiles.length + " items"
               : contextMenu.item.name
           }`
         );
         break;
-      case 'properties':
+      case "properties":
         setPropertiesModal({
           isOpen: true,
           files: isMultipleSelection ? selectedFiles : [contextMenu.item],
         });
         break;
       default:
-        console.log('Unknown action:', action);
+        console.log("Unknown action:", action);
     }
 
     setContextMenu((prev) => ({ ...prev, isOpen: false }));
@@ -1697,19 +2231,31 @@ const FileManager: React.FC<FileManagerProps> = ({
     );
 
     switch (action) {
-      case 'upload':
+      case "upload":
         setUploadModal({ isOpen: true });
         break;
-      case 'newfolder':
+      case "newfolder":
         setNewFolderModal({ isOpen: true });
         break;
-      case 'copy':
-        console.log(`Copy ${selectedFiles.length} selected files`);
+      case "copy":
+        if (selectedFiles.length > 0) {
+          setCopyMoveModal({
+            isOpen: true,
+            type: "copy",
+            files: selectedFiles,
+          });
+        }
         break;
-      case 'move':
-        console.log(`Move ${selectedFiles.length} selected files`);
+      case "move":
+        if (selectedFiles.length > 0) {
+          setCopyMoveModal({
+            isOpen: true,
+            type: "move",
+            files: selectedFiles,
+          });
+        }
         break;
-      case 'delete':
+      case "delete":
         if (selectedFiles.length > 0) {
           setDeleteModal({
             isOpen: true,
@@ -1717,11 +2263,38 @@ const FileManager: React.FC<FileManagerProps> = ({
           });
         }
         break;
-      case 'share':
+      case "share":
         console.log(`Share ${selectedFiles.length} selected files`);
         break;
       default:
-        console.log('Unknown action:', action);
+        console.log("Unknown action:", action);
+    }
+  };
+
+  const handleCopyMoveConfirm = async (
+    destinationFolderId: string | null,
+    destinationFolderName: string
+  ) => {
+    const itemIds = copyMoveModal.files.map((file) => file.id);
+
+    setIsCopyingMoving(true);
+
+    try {
+      if (copyMoveModal.type === "copy") {
+        await copyItemsMutation.mutateAsync({
+          itemIds,
+          sourceFolderId: currentFolderId,
+          destinationFolderId,
+        });
+      } else {
+        await moveItemsMutation.mutateAsync({
+          itemIds,
+          sourceFolderId: currentFolderId,
+          destinationFolderId,
+        });
+      }
+    } catch (error) {
+      console.error(`${copyMoveModal.type} operation failed:`, error);
     }
   };
 
@@ -1747,23 +2320,23 @@ const FileManager: React.FC<FileManagerProps> = ({
     };
 
     switch (fileViewer.type) {
-      case 'image':
+      case "image":
         return <ImageViewer {...commonProps} files={filteredAndSortedFiles} />;
-      case 'pdf':
+      case "pdf":
         return <PDFViewer {...commonProps} />;
-      case 'document':
+      case "document":
         return <DocumentViewer {...commonProps} />;
-      case 'spreadsheet':
+      case "spreadsheet":
         return <SpreadsheetViewer {...commonProps} />;
-      case 'presentation':
+      case "presentation":
         return <PresentationViewer {...commonProps} />;
-      case 'video':
+      case "video":
         return <VideoViewer {...commonProps} />;
-      case 'audio':
+      case "audio":
         return <AudioPlayer {...commonProps} />;
-      case 'code':
+      case "code":
         return <CodeViewer {...commonProps} />;
-      case 'text':
+      case "text":
         return <TextViewer {...commonProps} />;
       default:
         return (
@@ -1782,7 +2355,7 @@ const FileManager: React.FC<FileManagerProps> = ({
                 </button>
                 <button
                   onClick={() => {
-                    console.log('Download:', fileViewer.file?.name);
+                    console.log("Download:", fileViewer.file?.name);
                     closeFileViewer();
                   }}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
@@ -1852,10 +2425,10 @@ const FileManager: React.FC<FileManagerProps> = ({
             <p className="text-gray-400 text-center max-w-md">
               {searchQuery
                 ? `No files match "${searchQuery}". Try adjusting your search terms.`
-                : 'This folder is empty. Upload files or create new folders to get started.'}
+                : "This folder is empty. Upload files or create new folders to get started."}
             </p>
           </div>
-        ) : viewConfig.type === 'grid' ? (
+        ) : viewConfig.type === "grid" ? (
           <GridView
             files={filteredAndSortedFiles}
             selectedIds={selectedIds}
@@ -1906,6 +2479,17 @@ const FileManager: React.FC<FileManagerProps> = ({
         isUploading={isUploading}
       />
 
+      <CopyMoveModal
+        isOpen={copyMoveModal.isOpen}
+        onClose={() =>
+          setCopyMoveModal({ isOpen: false, type: "copy", files: [] })
+        }
+        onConfirm={handleCopyMoveConfirm}
+        type={copyMoveModal.type}
+        files={copyMoveModal.files}
+        isProcessing={isCopyingMoving}
+        currentFolderId={currentFolderId}
+      />
       {/* Delete Modal */}
       <DeleteModal
         isOpen={deleteModal.isOpen}

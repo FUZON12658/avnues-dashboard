@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Cancel01Icon,
   ZoomInAreaIcon,
@@ -20,7 +21,11 @@ import {
   FullScreenIcon,
   ArrowShrink01Icon,
 } from '@hugeicons/core-free-icons';
+const ReactPlayer = dynamic(() => import('./wrapper-react-player'), {
+  ssr: false,
+});
 import { HugeiconsIcon } from '@hugeicons/react';
+import { X, Play, Pause, Volume2, VolumeX, Settings, SkipBack, SkipForward, Maximize, Minimize } from 'lucide-react';
 // File type detection
 export const FILE_TYPES = {
   image: {
@@ -738,50 +743,635 @@ export const PresentationViewer: React.FC<{
 };
 
 // Video Viewer Component
-export const VideoViewer: React.FC<{
-  file: any;
-  onClose: () => void;
-}> = ({ file, onClose }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+// export const VideoViewer: React.FC<{
+//   file: any;
+//   onClose: () => void;
+// }> = ({ file, onClose }) => {
+//   const [isPlaying, setIsPlaying] = useState(false);
+//   const [isMuted, setIsMuted] = useState(false);
+//   const [currentTime, setCurrentTime] = useState(0);
+//   const [duration, setDuration] = useState(0);
+
+//   return (
+//     <div className="fixed inset-0 bg-black z-50 flex flex-col">
+//       {/* Header */}
+//       <div className="bg-black bg-opacity-80 p-4 flex justify-between items-center">
+//         <div className="text-white">
+//           <h3 className="text-lg font-medium">{file.name}</h3>
+//         </div>
+//         <div className="flex items-center gap-2">
+//           <button className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded">
+//             <HugeiconsIcon icon={Settings02Icon} className="w-5 h-5" />
+//           </button>
+//           <button
+//             onClick={onClose}
+//             className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded"
+//           >
+//             <HugeiconsIcon icon={Cancel01Icon} className="w-5 h-5" />
+//           </button>
+//         </div>
+//       </div>
+
+//       {/* Video Player */}
+//       <div>{process.env.NEXT_PUBLIC_API_HOST}/{file.file?.optimized_links?.hls.path ?? file.file?.path}</div>
+// <div className="flex-1 flex items-center justify-center">
+//   <ReactPlayer
+//   //@ts-ignore
+//     url={`${process.env.NEXT_PUBLIC_API_HOST}/${file.file?.optimized_links?.hls.path ?? file.file?.path}` || `/api/files/${file.id}/preview`}
+//     controls={true}
+//     playing={isPlaying}
+//     muted={isMuted}
+//     width="100%"
+//     height="100%"
+//     style={{ maxWidth: "100%", maxHeight: "100%" }}
+//   />
+// </div>
+//     </div>
+//   );
+// };
+
+
+export const VideoViewer = ({ file, onClose, autoPlay = false }:{file:any, onClose:()=>void, autoPlay?: boolean}) => {
+  const playerRef = React.useRef<any>(null);
+  const containerRef = React.useRef<any>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [controlsTimeout, setControlsTimeout] = useState<any>(null);
+  const [buffering, setBuffering] = useState(false);
+  const [playerLoaded, setPlayerLoaded] = useState(false);
+  const [leftTap, setLeftTap] = useState(false);
+  const [rightTap, setRightTap] = useState(false);
+  const [lastTap, setLastTap] = useState(0);
+
+  // Video state
+  const [videoState, setVideoState] = useState({
+    playing: autoPlay,
+    muted: false,
+    volume: 1,
+    played: 0,
+    loaded: 0,
+    duration: 0,
+    currentTime: 0,
+    seeking: false,
+    playbackRate: 1,
+    quality: 'Auto',
+    availableQuality: []
+  });
+
+  // Quality and playback rate options
+  const playbackRateOptions = [
+    { value: 0.25, label: '0.25x' },
+    { value: 0.5, label: '0.5x' },
+    { value: 1, label: '1x' },
+    { value: 1.25, label: '1.25x' },
+    { value: 1.5, label: '1.5x' },
+    { value: 2, label: '2x' }
+  ];
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Get video URL - prioritize HLS if available
+  const videoUrl = React.useMemo(() => {
+    if (file?.file?.optimized_links?.hls?.path) {
+    
+      return `${process.env.NEXT_PUBLIC_API_HOST}/${file.file.optimized_links.hls.path}`;
+    }
+    if (file?.file?.path) {
+      return `${process.env.NEXT_PUBLIC_API_HOST}/${file.file.path}`;
+    }
+    return `/api/files/${file.id}/preview`;
+  }, [file]);
+  console.log(videoUrl);
+  // Auto-hide controls
+  useEffect(() => {
+    if (showControls && videoState.playing && !buffering) {
+      if (controlsTimeout) clearTimeout(controlsTimeout);
+      
+      const timeout = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+      
+      setControlsTimeout(timeout);
+    }
+
+    return () => {
+      if (controlsTimeout) clearTimeout(controlsTimeout);
+    };
+  }, [showControls, videoState.playing, buffering]);
+
+  // Keyboard controls
+  useEffect(() => {
+    const handleKeyDown = (event:any) => {
+      if (settingsOpen) return;
+
+      switch (event.code) {
+        case 'Space':
+          event.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowUp':
+          event.preventDefault();
+          volumeChangeHandler((videoState.volume * 100) + 10);
+          break;
+        case 'ArrowDown':
+          event.preventDefault();
+          volumeChangeHandler((videoState.volume * 100) - 10);
+          break;
+        case 'ArrowLeft':
+          event.preventDefault();
+          handleRewind();
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          handleForward();
+          break;
+        case 'KeyF':
+          event.preventDefault();
+          toggleFullscreen();
+          break;
+        case 'KeyM':
+          event.preventDefault();
+          toggleMute();
+          break;
+        case 'Escape':
+          if (isFullscreen) {
+            toggleFullscreen();
+          } else {
+            onClose();
+          }
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [videoState, settingsOpen, isFullscreen]);
+
+  // Player event handlers
+  const handleReady = () => {
+    setPlayerLoaded(true);
+    
+    // Get quality levels if available - add delay to ensure player is fully loaded
+    setTimeout(() => {
+      if (playerRef.current && playerRef.current.getInternalPlayer) {
+        try {
+          const hlsPlayer = playerRef.current.getInternalPlayer('hls');
+          if (hlsPlayer && hlsPlayer.levels && hlsPlayer.levels.length > 0) {
+            setVideoState(prevState => ({
+              ...prevState,
+              availableQuality: hlsPlayer.levels.map((level:any) => level.height),
+              quality: hlsPlayer.currentLevel >= 0 
+                ? hlsPlayer.levels[hlsPlayer.currentLevel].height 
+                : 'Auto'
+            }));
+          }
+        } catch (error) {
+          console.log('Could not get HLS quality levels:', error);
+        }
+      }
+    }, 1000);
+  };
+
+  const handleProgress = (progress:any) => {
+    if (!videoState.seeking) {
+      setVideoState(prevState => ({
+        ...prevState,
+        ...progress,
+        // Update current time from progress if available
+        currentTime: progress.playedSeconds || prevState.currentTime || 0
+      }));
+    }
+  };
+
+  const handleDuration = (duration:any) => {
+    setVideoState(prevState => ({
+      ...prevState,
+      duration
+    }));
+  };
+
+  const handleEnded = () => {
+    setVideoState(prevState => ({
+      ...prevState,
+      playing: false,
+      played: 1
+    }));
+  };
+
+  // Safe player method calls
+  const safeGetCurrentTime = () => {
+    try {
+      return playerRef.current && typeof playerRef.current.getCurrentTime === 'function' 
+        ? playerRef.current.getCurrentTime() 
+        : videoState.currentTime || 0;
+    } catch (error) {
+      return videoState.currentTime || 0;
+    }
+  };
+
+  const safeGetDuration = () => {
+    try {
+      return playerRef.current && typeof playerRef.current.getDuration === 'function'
+        ? playerRef.current.getDuration()
+        : videoState.duration || 0;
+    } catch (error) {
+      return videoState.duration || 0;
+    }
+  };
+
+  const safeSeekTo = (time:any) => {
+    try {
+      if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+        playerRef.current.seekTo(time);
+      }
+    } catch (error) {
+      console.log('Could not seek to time:', error);
+    }
+  };
+
+  // Control handlers
+  const togglePlay = () => {
+    setVideoState(prevState => ({
+      ...prevState,
+      playing: !prevState.playing
+    }));
+    setShowControls(true);
+  };
+
+  const handleRewind = () => {
+    const currentTime = safeGetCurrentTime();
+    const rewindTime = Math.max(0, currentTime - 10);
+    safeSeekTo(rewindTime);
+    setLeftTap(true);
+    setTimeout(() => setLeftTap(false), 500);
+  };
+
+  const handleForward = () => {
+    const currentTime = safeGetCurrentTime();
+    const duration = safeGetDuration();
+    const forwardTime = Math.min(duration, currentTime + 10);
+    safeSeekTo(forwardTime);
+    setRightTap(true);
+    setTimeout(() => setRightTap(false), 500);
+  };
+
+  const seekHandler = (value:any) => {
+    setVideoState(prevState => ({
+      ...prevState,
+      played: parseFloat(value) / 100,
+      seeking: true
+    }));
+  };
+
+  const seekMouseUpHandler = (value:any) => {
+    setVideoState(prevState => ({
+      ...prevState,
+      seeking: false
+    }));
+    safeSeekTo(value / 100);
+  };
+
+  const volumeChangeHandler = (value:any) => {
+    const newVolume = Math.max(0, Math.min(parseFloat(value) / 100, 1));
+    setVideoState(prevState => ({
+      ...prevState,
+      volume: newVolume,
+      muted: newVolume === 0
+    }));
+  };
+
+  const toggleMute = () => {
+    setVideoState(prevState => ({
+      ...prevState,
+      muted: !prevState.muted,
+      volume: prevState.muted ? 1 : prevState.volume
+    }));
+  };
+
+  const playbackRateHandler = (rate:any) => {
+    setVideoState(prevState => ({
+      ...prevState,
+      playbackRate: rate
+    }));
+    setSettingsOpen(false);
+  };
+
+  const qualityHandler = (qualityIndex:any) => {
+    try {
+      if (playerRef.current && playerRef.current.getInternalPlayer) {
+        const hlsPlayer = playerRef.current.getInternalPlayer('hls');
+        if (hlsPlayer && hlsPlayer.levels) {
+          hlsPlayer.currentLevel = qualityIndex;
+          setVideoState(prevState => ({
+            ...prevState,
+            quality: qualityIndex === -1 ? 'Auto' : hlsPlayer.levels[qualityIndex].height
+          }));
+        }
+      }
+    } catch (error) {
+      console.log('Could not change quality:', error);
+    }
+    setSettingsOpen(false);
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  // Double tap/click handler
+  const handleDoubleClick = (e:any) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const centerX = rect.width / 2;
+
+    if (clickX < centerX) {
+      handleRewind();
+    } else {
+      handleForward();
+    }
+  };
+
+  const handleDoubleTap = (e:any) => {
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTap;
+    
+    if (tapLength < 500 && tapLength > 0) {
+      handleDoubleClick(e);
+    }
+    setLastTap(currentTime);
+  };
+
+  // Format time
+  const formatTime = (seconds:any) => {
+    if (isNaN(seconds)) return '0:00';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const currentTime = safeGetCurrentTime();
+  const duration = safeGetDuration();
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-black bg-opacity-80 p-4 flex justify-between items-center">
-        <div className="text-white">
-          <h3 className="text-lg font-medium">{file.name}</h3>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded">
-            <HugeiconsIcon icon={Settings02Icon} className="w-5 h-5" />
-          </button>
+    <div 
+      ref={containerRef}
+      className={`fixed inset-0 bg-black z-50 flex flex-col ${isFullscreen ? 'cursor-none' : ''}`}
+      onMouseMove={() => setShowControls(true)}
+      onMouseLeave={() => !settingsOpen && setShowControls(false)}
+      onTouchStart={() => setShowControls(true)}
+      onDoubleClick={handleDoubleClick}
+      onTouchEnd={handleDoubleTap}
+    >
+      {/* Header - only show when not fullscreen */}
+      {!isFullscreen && (
+        <div className={`bg-black bg-opacity-80 p-4 flex justify-between items-center transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="text-white">
+            <h3 className="text-lg font-medium truncate">{file.name}</h3>
+            <p className="text-sm text-gray-300">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded"
+            className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
           >
-            <HugeiconsIcon icon={Cancel01Icon} className="w-5 h-5" />
+            <X className="w-6 h-6" />
           </button>
         </div>
+      )}
+
+      {/* Video Container */}
+      <div className="flex-1 relative overflow-hidden">
+        <ReactPlayer
+          ref={playerRef}
+          //@ts-ignore
+          url={videoUrl}
+          width="100%"
+          height="100%"
+          playing={videoState.playing}
+          volume={videoState.volume}
+          muted={videoState.muted}
+          playbackRate={videoState.playbackRate}
+          onReady={handleReady}
+          onProgress={handleProgress}
+          onDuration={handleDuration}
+          onEnded={handleEnded}
+          onBuffer={() => setBuffering(true)}
+          onBufferEnd={() => setBuffering(false)}
+          style={{ position: 'absolute', top: 0, left: 0 }}
+          className="object-contain"
+        />
+
+        {/* Loading/Buffering Indicator */}
+        {(buffering || !playerLoaded) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+          </div>
+        )}
+
+        {/* Tap Feedback */}
+        {leftTap && (
+          <div className="absolute inset-0 flex items-center justify-start pl-20">
+            <div className="bg-black bg-opacity-80 rounded-full p-4">
+              <SkipBack className="w-8 h-8 text-white" />
+            </div>
+          </div>
+        )}
+
+        {rightTap && (
+          <div className="absolute inset-0 flex items-center justify-end pr-20">
+            <div className="bg-black bg-opacity-80 rounded-full p-4">
+              <SkipForward className="w-8 h-8 text-white" />
+            </div>
+          </div>
+        )}
+
+        {/* Controls */}
+        {showControls && (
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/50 to-transparent p-4">
+            {/* Progress Bar */}
+            <div className="mb-4">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={videoState.played * 100}
+                onChange={(e:any) => seekHandler(e.target.value)}
+                onMouseUp={(e:any) => seekMouseUpHandler(e.target.value)}
+                className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, #ef4444 0%, #ef4444 ${videoState.played * 100}%, #4b5563 ${videoState.played * 100}%, #4b5563 100%)`
+                }}
+              />
+            </div>
+
+            {/* Control Buttons */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                {/* Play/Pause */}
+                <button
+                  onClick={togglePlay}
+                  className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                >
+                  {videoState.playing ? (
+                    <Pause className="w-6 h-6" />
+                  ) : (
+                    <Play className="w-6 h-6" />
+                  )}
+                </button>
+
+                {/* Rewind */}
+                <button
+                  onClick={handleRewind}
+                  className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                >
+                  <SkipBack className="w-5 h-5" />
+                </button>
+
+                {/* Forward */}
+                <button
+                  onClick={handleForward}
+                  className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                >
+                  <SkipForward className="w-5 h-5" />
+                </button>
+
+                {/* Volume */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={toggleMute}
+                    className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                  >
+                    {videoState.muted || videoState.volume === 0 ? (
+                      <VolumeX className="w-5 h-5" />
+                    ) : (
+                      <Volume2 className="w-5 h-5" />
+                    )}
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={videoState.muted ? 0 : videoState.volume * 100}
+                    onChange={(e) => volumeChangeHandler(e.target.value)}
+                    className="w-20 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+
+                {/* Time Display */}
+                <span className="text-white text-sm">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Settings */}
+                <div className="relative">
+                  <button
+                    onClick={() => setSettingsOpen(!settingsOpen)}
+                    className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
+
+                  {settingsOpen && (
+                    <div className="absolute bottom-12 right-0 bg-black bg-opacity-90 rounded-lg p-4 min-w-48">
+                      {/* Playback Rate */}
+                      <div className="mb-4">
+                        <h4 className="text-white text-sm font-medium mb-2">Playback Speed</h4>
+                        <div className="grid grid-cols-3 gap-2">
+                          {playbackRateOptions.map((option) => (
+                            <button
+                              key={option.value}
+                              onClick={() => playbackRateHandler(option.value)}
+                              className={`px-2 py-1 text-xs rounded transition-colors ${
+                                videoState.playbackRate === option.value
+                                  ? 'bg-red-600 text-white'
+                                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Quality */}
+                      {videoState.availableQuality.length > 0 && (
+                        <div>
+                          <h4 className="text-white text-sm font-medium mb-2">Quality</h4>
+                          <div className="space-y-1">
+                            <button
+                              onClick={() => qualityHandler(-1)}
+                              className={`block w-full text-left px-2 py-1 text-xs rounded transition-colors ${
+                                videoState.quality === 'Auto'
+                                  ? 'bg-red-600 text-white'
+                                  : 'text-gray-300 hover:bg-gray-700'
+                              }`}
+                            >
+                              Auto
+                            </button>
+                            {videoState.availableQuality.map((quality, index) => (
+                              <button
+                                key={quality}
+                                onClick={() => qualityHandler(index)}
+                                className={`block w-full text-left px-2 py-1 text-xs rounded transition-colors ${
+                                  videoState.quality === quality
+                                    ? 'bg-red-600 text-white'
+                                    : 'text-gray-300 hover:bg-gray-700'
+                                }`}
+                              >
+                                {quality}p
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Fullscreen */}
+                <button
+                  onClick={toggleFullscreen}
+                  className="p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                >
+                  {isFullscreen ? (
+                    <Minimize className="w-5 h-5" />
+                  ) : (
+                    <Maximize className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Video Player */}
-      <div className="flex-1 flex items-center justify-center">
-        <video
-          className="max-w-full max-h-full"
-          controls
-          autoPlay={isPlaying}
-          muted={isMuted}
-          src={file.file?.path || `/api/files/${file.id}/preview`}
-        >
-          Your browser does not support the video tag.
-        </video>
-      </div>
+      {/* Keyboard Shortcuts Help */}
+      {showControls && !isFullscreen && (
+        <div className="absolute top-20 left-4 bg-black bg-opacity-80 text-white p-3 rounded-lg text-xs max-w-xs opacity-75">
+          <p className="font-medium mb-1">Keyboard Shortcuts:</p>
+          <p>Space: Play/Pause • ←/→: Skip 10s • ↑/↓: Volume • F: Fullscreen • M: Mute • ESC: Close</p>
+        </div>
+      )}
     </div>
   );
 };
+
+
 
 // Audio Player Component
 export const AudioPlayer: React.FC<{

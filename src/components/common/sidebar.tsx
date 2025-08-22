@@ -423,7 +423,7 @@ const Sidebar = () => {
               isCollapsed ? "justify-center translate-x-4" : "justify-center translate-x-0"
             }`}
           >
-            <img src="/adminasset/yangri.svg" alt="logo" className="h-10" />
+            <img src="/atv.svg" alt="logo" className="h-10" />
             
           </Link>
         </div>
@@ -431,13 +431,13 @@ const Sidebar = () => {
         <hr className="m-0 text-border h-[0.125rem]" />
         
         {/* User Section */}
-        <div className="py-[1.5625rem] min-h-[6rem] max-h-[6rem] flex">
+        {/* <div className="py-[1.5625rem] min-h-[6rem] max-h-[6rem] flex">
           <div
             className={`flex items-start text-primary transition-all mx-auto gap-4 duration-300 ease-in-out ${
               isCollapsed ? "justify-center translate-x-4" : "justify-center  translate-x-0"
             }`}
           >
-            <img src="/adminasset/yg.svg" alt="logo" className="h-10" />
+            <img src="/atv.svg" alt="logo" className="h-10" />
             <div
               className={`flex flex-col transition-all duration-300 ease-in-out ${
                 isCollapsed
@@ -451,7 +451,7 @@ const Sidebar = () => {
               </span>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Navigation */}
         <div
