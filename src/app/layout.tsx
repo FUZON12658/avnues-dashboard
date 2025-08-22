@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Yangri Trip",
-  description: "Yangri Trip",
+  title: "Avatar | Media Management Platform for Avnews Ott",
+  description: "Avatar | Media Management Platform for Avnews Ott",
 };
 
 export default function RootLayout({
